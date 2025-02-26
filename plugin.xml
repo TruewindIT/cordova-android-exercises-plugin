@@ -37,14 +37,18 @@
       <preference name="AndroidXEnabled" value="true"/> -->
         
         <config-file target="AndroidManifest.xml" parent="/manifest" xmlns:android="http://schemas.android.com/apk/res/android">
+            <!-- <uses-permission android:name="android.permission.health.WRITE_HEART_RATE"/> -->
+            <!-- <uses-permission android:name="android.permission.health.WRITE_STEPS"/> -->
+            <!-- <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/> -->
+            <!-- <uses-permission android:name="android.permission.health.WRITE_EXERCISEROUTE"/> -->
             <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
-            <uses-permission android:name="android.permission.health.WRITE_HEART_RATE"/>
             <uses-permission android:name="android.permission.health.READ_STEPS"/>
-            <uses-permission android:name="android.permission.health.WRITE_STEPS"/>
             <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
-            <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/>
             <uses-permission android:name="android.permission.health.READ_EXERCISEROUTE"/>
-            <uses-permission android:name="android.permission.health.WRITE_EXERCISEROUTE"/>
+            <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
+            <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
+            <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application" xmlns:android="http://schemas.android.com/apk/res/android">

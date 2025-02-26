@@ -1,12 +1,16 @@
 package com.axians.requestexercisepermissionsplugin
 
 import android.content.Intent
-import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.response.ReadRecordsResponse
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.google.gson.Gson
 import kotlinx.coroutines.*
 import org.apache.cordova.CallbackContext
 import org.apache.cordova.CordovaInterface
@@ -57,24 +61,64 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
     }
 
     private fun getExerciseData(startTime: Instant, endTime: Instant, callbackContext: CallbackContext)  = runBlocking {
-        val deferred: Deferred<List<ExerciseSessionRecord>> = async {
+        val exercises: List<ExerciseSessionRecord> = async {
             fetchExerciseData(startTime, endTime)
-        }
-        val result: List<ExerciseSessionRecord> = deferred.await()
+        }.await()
         val response = mutableListOf<Map<String, Any>>()
-        for (exerciseRecord in result) {
+        for (exerciseRecord in exercises) {
+
+            val samples = mutableListOf<Map<String, Any>>()
+
+            val distance = async {
+                readDistanceData(exerciseRecord.startTime, exerciseRecord.endTime)
+            }.await()
+
+            val calories = async {
+                readTotalCaloriesBurned(exerciseRecord.startTime, exerciseRecord.endTime)
+            }.await()
+
+            val decimalCaloriesList = mutableListOf<Double>()
+            val activeCalories = async {
+                readTotalCaloriesBurned(exerciseRecord.startTime, exerciseRecord.endTime)
+            }.await()
+            val heartRates = async {
+                readHeartRateValues(exerciseRecord.startTime, exerciseRecord.endTime)
+            }.await()
+            decimalCaloriesList.add(activeCalories)
+            samples.add(
+                mapOf(
+                    "startDate" to exerciseRecord.startTime.toString(),
+                    "endDate" to exerciseRecord.endTime.toString(),
+                    "block" to 1,
+                    "values" to decimalCaloriesList,
+                    "additionalData" to "ACTIVE_CALORIES_BURNED"
+                    )
+                )
+            samples.add(
+                    mapOf(
+                        "startDate" to exerciseRecord.startTime.toString(),
+                        "endDate" to exerciseRecord.endTime.toString(),
+                        "block" to 1,
+                        "values" to heartRates,
+                        "additionalData" to "HEART_RATE"
+                    )
+                )
+
             response.add(
                 mapOf(
-                    "startDate" to exerciseRecord.startTime,
-                    "endDate" to exerciseRecord.endTime,
+                    "startDate" to exerciseRecord.startTime.toString(),
+                    "endDate" to exerciseRecord.endTime.toString(),
                     "duration" to Duration.between(exerciseRecord.startTime, exerciseRecord.endTime).seconds,
-                    "Activity" to getExerciseTypeString(exerciseRecord.exerciseType)
+                    "activity" to getExerciseTypeString(exerciseRecord.exerciseType),
+                    "distance" to distance,
+                    "calories" to calories,
+                    "samples" to samples
                 ))
         }
-       callbackContext.sendPluginResult(PluginResult(PluginResult.Status.OK, response.toString()))
+       callbackContext.sendPluginResult(PluginResult(PluginResult.Status.OK, Gson().toJson(response)))
     }
 
-    suspend fun fetchExerciseData(startTime: Instant, endTime: Instant): List<ExerciseSessionRecord> {
+    private suspend fun fetchExerciseData(startTime: Instant, endTime: Instant): List<ExerciseSessionRecord> {
         val healthConnectClient = HealthConnectClient.getOrCreate(cordova.context)
         val request = ReadRecordsRequest(
             recordType = ExerciseSessionRecord::class,
@@ -82,6 +126,91 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
         )
         val response: ReadRecordsResponse<ExerciseSessionRecord> = healthConnectClient.readRecords(request)
         return response.records
+    }
+
+    private suspend fun readDistanceData(startTime: Instant, endTime: Instant): Double {
+        var distance = 0.0
+        try {
+            val healthConnectClient = HealthConnectClient.getOrCreate(cordova.context)
+            val timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            val request = ReadRecordsRequest(
+                recordType = DistanceRecord::class,
+                timeRangeFilter = timeRangeFilter
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records.forEach { distanceRecord ->
+                    distance += distanceRecord.distance.inMeters
+            }
+
+        } catch (e: Exception) {
+            println(e.message)
+            distance = 0.0
+        }
+        return distance
+    }
+
+    private suspend fun readTotalCaloriesBurned(startTime: Instant, endTime: Instant): Double {
+        var calories = 0.0
+        try {
+            val healthConnectClient = HealthConnectClient.getOrCreate(cordova.context)
+
+            val timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            val request = ReadRecordsRequest(
+                recordType = TotalCaloriesBurnedRecord::class,
+                timeRangeFilter = timeRangeFilter
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records.forEach { caloriesRecord ->
+                calories += caloriesRecord.energy.inKilocalories
+            }
+        } catch (e: Exception) {
+            println(e.message)
+            calories = 0.0
+        }
+        return calories
+    }
+
+    private suspend fun readHeartRateValues(startTime: Instant, endTime: Instant): List<Double> {
+        var heartRatesList = mutableListOf<Double>()
+        try {
+            val healthConnectClient = HealthConnectClient.getOrCreate(cordova.context)
+
+            val timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            val request = ReadRecordsRequest(
+                recordType = HeartRateRecord::class,
+                timeRangeFilter = timeRangeFilter
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records.forEach { heartRateRecord ->
+                heartRateRecord.samples.forEach { bpm ->
+                    bpm.beatsPerMinute.toDouble()
+                    heartRatesList
+                }
+            }
+        } catch (e: Exception) {
+            println(e.message)
+        }
+        return heartRatesList
+    }
+
+    private suspend fun readActiveCaloriesBurned(startTime: Instant, endTime: Instant): Double {
+        var calories = 0.0
+        try {
+            val healthConnectClient = HealthConnectClient.getOrCreate(cordova.context)
+
+            val timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            val request = ReadRecordsRequest(
+                recordType = ActiveCaloriesBurnedRecord::class,
+                timeRangeFilter = timeRangeFilter
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records.forEach { caloriesRecord ->
+                calories += caloriesRecord.energy.inKilocalories
+            }
+        } catch (e: Exception) {
+            calories = 0.0
+        }
+        return calories
     }
 
     //extracted from ExerciseSessionRecord.ExerciseTypes and https://developer.android.com/reference/kotlin/androidx/health/services/client/data/ExerciseType#fromId(kotlin.Int)
