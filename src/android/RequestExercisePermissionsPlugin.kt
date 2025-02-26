@@ -110,8 +110,8 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                     "endDate" to exerciseRecord.endTime.toString(),
                     "duration" to Duration.between(exerciseRecord.startTime, exerciseRecord.endTime).seconds,
                     "activity" to getExerciseTypeString(exerciseRecord.exerciseType),
-                    "distance" to distance,
-                    "calories" to calories,
+                    "totalDistance" to distance,
+                    "totalEnergyBurned" to calories,
                     "samples" to samples
                 ))
         }
