@@ -2,10 +2,12 @@ package com.axians.requestexercisepermissionsplugin
 
 import android.content.Intent
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.response.ReadRecordsResponse
@@ -42,8 +44,18 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
 
         return when (action) {
             "requestPermissions" -> {
-                requestPermissions(callbackContext)
-                true
+                runBlocking {
+                    val allSet = async {
+                        checkPermissions()
+                    }.await()
+                    if (allSet) {
+                        callbackContext.sendPluginResult(PluginResult(PluginResult.Status.OK))
+                    } else {
+                        requestPermissions(callbackContext)
+                        callbackContext.sendPluginResult(PluginResult(PluginResult.Status.OK))
+                    }
+                    true
+                }
             }
             "getExerciseData" -> {
                 val startTime: Instant= Instant.parse(args.getString(0))
@@ -61,6 +73,14 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
     }
 
     private fun getExerciseData(startTime: Instant, endTime: Instant, callbackContext: CallbackContext)  = runBlocking {
+        val allSet = async {
+            checkPermissions()
+        }.await()
+        if (!allSet) {
+            val message = "Not all necessary permissions were given. Add all fitness permissions on your device settings."
+            callbackContext.sendPluginResult(PluginResult(PluginResult.Status.ERROR, message))
+            return@runBlocking
+        }
         val exercises: List<ExerciseSessionRecord> = async {
             fetchExerciseData(startTime, endTime)
         }.await()
@@ -79,12 +99,14 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
 
             val decimalCaloriesList = mutableListOf<Double>()
             val activeCalories = async {
-                readTotalCaloriesBurned(exerciseRecord.startTime, exerciseRecord.endTime)
+                readActiveCaloriesBurned(exerciseRecord.startTime, exerciseRecord.endTime)
             }.await()
+            decimalCaloriesList.add(activeCalories)
+
             val heartRates = async {
                 readHeartRateValues(exerciseRecord.startTime, exerciseRecord.endTime)
             }.await()
-            decimalCaloriesList.add(activeCalories)
+
             samples.add(
                 mapOf(
                     "startDate" to exerciseRecord.startTime.toString(),
@@ -183,8 +205,7 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
             val response = healthConnectClient.readRecords(request)
             response.records.forEach { heartRateRecord ->
                 heartRateRecord.samples.forEach { bpm ->
-                    bpm.beatsPerMinute.toDouble()
-                    heartRatesList
+                    heartRatesList.add(bpm.beatsPerMinute.toDouble())
                 }
             }
         } catch (e: Exception) {
@@ -204,6 +225,7 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                 timeRangeFilter = timeRangeFilter
             )
             val response = healthConnectClient.readRecords(request)
+            println(response.records)
             response.records.forEach { caloriesRecord ->
                 calories += caloriesRecord.energy.inKilocalories
             }
@@ -211,6 +233,18 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
             calories = 0.0
         }
         return calories
+    }
+
+    private suspend fun checkPermissions(): Boolean{
+        val permissions = getPermissionsSet()
+        val grantedPermissions = HealthConnectClient.getOrCreate(cordova.context).permissionController.getGrantedPermissions()
+        if (!grantedPermissions.containsAll(permissions)) {
+            println("not all ghgranted.")
+            return false
+        } else {
+            println("All permissions already granted.")
+            return true
+        }
     }
 
     //extracted from ExerciseSessionRecord.ExerciseTypes and https://developer.android.com/reference/kotlin/androidx/health/services/client/data/ExerciseType#fromId(kotlin.Int)
@@ -278,6 +312,19 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
             82 -> "wheelchair"
             83 -> "yoga"
             else -> "unknown"
+        }
+    }
+    companion object {
+        fun getPermissionsSet(): Set<String> {
+            val permissions = setOf(
+                HealthPermission.getReadPermission(HeartRateRecord::class),
+                HealthPermission.getReadPermission(StepsRecord::class),
+                HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+                HealthPermission.getReadPermission(DistanceRecord::class),
+                HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+                HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+            )
+            return permissions
         }
     }
 }
