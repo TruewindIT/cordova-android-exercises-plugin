@@ -40,21 +40,29 @@ The following dependencies are used in the `android/build.gradle` file:
 ### Example
 
 ```javascript
-// Request permissions
-RequestExercisePermissionsPlugin.requestPermissions();
-
-cordova.plugins.RequestExercisePermissionsPlugin.getExerciseData(
-  "2025-02-01T10:30:00Z", "2025-03-01T10:30:00Z",
-        function(success) {
-          // Success callback
-          console.log("Success: "+success);
-          console.log(typeof(success))
-        },
-        function(error) {
-          // Error callback
-          console.error("Error: "+error);
-        }
-      );
+var startTime = "2025-02-26T10:30:00Z"
+var endTime = "2025-02-27T10:30:00Z"
+var RequestExercisePermissionsPlugin = cordova.plugins.RequestExercisePermissionsPlugin
+RequestExercisePermissionsPlugin.requestPermissions(
+    function(success){
+        console.log("Permissions granted: " + success);
+        // Call getExerciseData here, only if permissions were granted
+        RequestExercisePermissionsPlugin.getExerciseData(
+        startTime, endTime,
+            function(success){
+                console.log("Exercise data: " + success);
+            },
+            function(error){
+                console.log("Exercise data error: " + error);
+            }
+        );
+    },
+    function(error){
+        console.log("Permissions error: " + error);
+    }
+)
+```
 
 # Author
 Developed by Henrique Silva at Axians DC Low-Code
+henrique.silva@axians.com
