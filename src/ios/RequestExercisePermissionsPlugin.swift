@@ -47,9 +47,13 @@ import HealthKit
         ]
 
         // Add types available only in specific OS versions conditionally
-        if #available(iOS 11.2, *) {
-            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!)
+        if #available(iOS 18.0, *) {
+             // User specified iOS 18.0+ requirement
             readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing)!)
+        }
+        if #available(iOS 11.2, *) {
+             // Introduced in iOS 11.2
+            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!)
         }
         // Add other version-specific types here if needed in the future
 

@@ -8,13 +8,20 @@
   "cordova": {
     "id": "com.axians.requestexercisepermissionsplugin",
     "platforms": [
-      "android"
+      "android",
+      "ios"
     ]
   },
   "keywords": [
     "cordova",
     "health",
+    "healthkit",
+    "health connect",
     "permissions",
-    "android"
-  ]
+    "android",
+    "ios"
+  ],
+  "devDependencies": {
+    "plist": "^3.1.0"
+  }
 }
