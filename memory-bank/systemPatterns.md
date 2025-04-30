@@ -1,42 +1,76 @@
-# System Patterns: Cordova Android Exercises Plugin
+# System Patterns: Cordova Health Exercises Plugin (Android & iOS)
 
 **Architecture:** Standard Cordova Plugin Architecture
 
-*   **JavaScript Interface (`www/RequestExercisePermissionsPlugin.js`):** Exposes plugin functions (`requestPermissions`, `getExerciseData`) to the Cordova WebView. Uses `cordova.exec` to bridge calls to the native layer.
-*   **Native Kotlin Implementation (`src/android/`):**
-    *   `RequestExercisePermissionsPlugin.kt`: The main plugin class extending `CordovaPlugin`. Handles actions dispatched from JavaScript. Interacts with the Health Connect SDK using Kotlin coroutines for asynchronous operations.
-    *   `HealthActivityPermissions.kt`: A dedicated Android `Activity` extending `CordovaActivity` responsible for launching the Health Connect permission request flow using `registerForActivityResult` and `PermissionController.createRequestPermissionResultContract()`.
-*   **Configuration (`plugin.xml`):** Defines the plugin ID, version, JavaScript module, native source files, target directories, feature mapping, required Android permissions (including specific Health Connect read permissions), and AndroidManifest entries for the permissions rationale activity/alias. Includes a framework reference to `android/build.gradle`.
-*   **Build Configuration (`android/build.gradle`):** Specifies dependencies (Health Connect client, Kotlin coroutines, Gson) and configures source sets to include Kotlin code.
+*   **JavaScript Interface (`www/RequestExercisePermissionsPlugin.js`):** Exposes plugin functions (`requestPermissions`, `getExerciseData`) to the Cordova WebView. Uses `cordova.exec` to bridge calls to the appropriate native layer based on the platform.
+*   **Native Kotlin Implementation (Android - `src/android/`):**
+    *   `RequestExercisePermissionsPlugin.kt`: Extends `CordovaPlugin`. Handles actions dispatched from JavaScript. Interacts with the Health Connect SDK using Kotlin coroutines.
+    *   `HealthActivityPermissions.kt`: Dedicated Android `Activity` for launching the Health Connect permission request flow.
+*   **Native Swift Implementation (iOS - `src/ios/`):**
+    *   `RequestExercisePermissionsPlugin.swift`: Extends `CDVPlugin`. Handles actions dispatched from JavaScript. Interacts with the HealthKit framework.
+*   **Configuration (`plugin.xml`):** Defines plugin ID, version, JS module. Contains platform-specific sections (`<platform name="android">`, `<platform name="ios">`):
+    *   **Android:** Specifies Kotlin source files, feature mapping, Android permissions, `AndroidManifest.xml` entries (permissions activity/alias), and includes `android/build.gradle` via `<framework>`.
+    *   **iOS:** Specifies Swift source file, feature mapping, links `HealthKit.framework`, and adds `Info.plist` usage descriptions (`NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`).
+*   **Build Configuration:**
+    *   **Android (`android/build.gradle`):** Specifies dependencies (Health Connect client, Kotlin coroutines, Gson), configures source sets. (Note: Currently incomplete for a library plugin).
+    *   **iOS:** Managed via `plugin.xml` framework linking and Xcode project settings derived from it.
 
 **Key Technical Decisions:**
 
-*   **Language:** Kotlin was chosen for the native Android implementation, leveraging its conciseness and coroutine support for interacting with the Health Connect SDK.
-*   **Asynchronous Operations:** Kotlin coroutines (`runBlocking`, `async`, `launch` with `Dispatchers.IO`) are used for background processing when fetching data from Health Connect to avoid blocking the main thread.
-*   **Permissions Handling:** A dedicated Activity (`HealthActivityPermissions`) is used to manage the Health Connect permission request flow, aligning with Android best practices. The main plugin class checks permissions before fetching data and initiates the request flow if needed.
-*   **Data Serialization:** Gson library is used to serialize the fetched health data into a JSON string before returning it to the JavaScript layer.
-*   **Dependency Management:** Plugin-specific dependencies are declared in `android/build.gradle`, which is included in the main app build via a `<framework>` tag in `plugin.xml`.
+*   **Languages:** Kotlin for Android, Swift for iOS.
+*   **Android Health Data:** Uses Google's Health Connect SDK.
+*   **iOS Health Data:** Uses Apple's HealthKit framework.
+*   **Asynchronous Operations:**
+    *   Android: Kotlin coroutines (`runBlocking`, `async`, `launch`).
+    *   iOS: HealthKit's asynchronous query completion handlers (`HKSampleQuery`, `requestAuthorization`). Main thread dispatch (`DispatchQueue.main.async`) used for Cordova callbacks.
+*   **Permissions Handling:**
+    *   Android: Dedicated Activity (`HealthActivityPermissions`) launched from the plugin.
+    *   iOS: Uses `HKHealthStore.requestAuthorization`.
+*   **Data Serialization:**
+    *   Android: Gson library.
+    *   iOS: `JSONSerialization`.
+*   **Dependency Management:**
+    *   Android: Via `android/build.gradle` referenced in `plugin.xml`.
+    *   iOS: Via `<framework>` tags in `plugin.xml`.
 
 **Component Relationships:**
 
 ```mermaid
-graph LR
+graph TD
     A[Cordova App JS] -- calls --> B(Plugin JS Interface);
-    B -- cordova.exec --> C{RequestExercisePermissionsPlugin.kt};
-    C -- checks/requests --> D(Health Connect Permissions);
-    C -- launches --> E(HealthActivityPermissions.kt);
-    E -- requests --> D;
-    C -- reads --> F(Health Connect SDK);
-    F -- returns data --> C;
-    C -- serializes w/ Gson --> G[JSON Data];
-    C -- PluginResult --> B;
+    B -- cordova.exec --> C{Platform Dispatch};
+
+    subgraph Android
+        C -- Android --> D[RequestExercisePermissionsPlugin.kt];
+        D -- checks/requests --> E(Health Connect Permissions);
+        D -- launches --> F(HealthActivityPermissions.kt);
+        F -- requests --> E;
+        D -- reads --> G(Health Connect SDK);
+        G -- returns data --> D;
+        D -- serializes w/ Gson --> H[JSON Data];
+        D -- PluginResult --> B;
+    end
+
+    subgraph iOS
+        C -- iOS --> I[RequestExercisePermissionsPlugin.swift];
+        I -- requests --> J(HealthKit Permissions);
+        I -- reads --> K(HealthKit Framework);
+        K -- returns data --> I;
+        I -- serializes w/ JSONSerialization --> L[JSON Data];
+        I -- CDVPluginResult --> B;
+    end
+
     B -- callback --> A;
 
-    style D fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#ccf,stroke:#333,stroke-width:2px
+    style E fill:#f9f,stroke:#333,stroke-width:2px
+    style G fill:#ccf,stroke:#333,stroke-width:2px
+    style J fill:#f9f,stroke:#333,stroke-width:2px
+    style K fill:#ccf,stroke:#333,stroke-width:2px
 ```
 
 **Critical Implementation Paths:**
 
-1.  **Permission Request:** Cordova JS -> Plugin JS -> `execute("requestPermissions")` -> `checkPermissions()` -> (If needed) `requestPermissions()` -> `HealthActivityPermissions.kt` -> Health Connect Permission UI -> `onRequestPermissionResult()` (in `HealthActivityPermissions`) -> Callback to JS.
-2.  **Data Fetching:** Cordova JS -> Plugin JS -> `execute("getExerciseData")` -> `checkPermissions()` -> (If granted) `getExerciseData()` -> Coroutine launch -> `fetchExerciseData()`, `readDistanceData()`, etc. -> Health Connect SDK -> Aggregate data -> Serialize with Gson -> `PluginResult.Status.OK` -> Callback to JS.
+1.  **Android Permission Request:** Cordova JS -> Plugin JS -> `execute("requestPermissions")` -> Kotlin `execute` -> `checkPermissions()` -> (If needed) `requestPermissions()` -> `HealthActivityPermissions.kt` -> Health Connect UI -> Callback to JS.
+2.  **Android Data Fetching:** Cordova JS -> Plugin JS -> `execute("getExerciseData")` -> Kotlin `execute` -> `checkPermissions()` -> (If granted) `getExerciseData()` -> Coroutine launch -> Health Connect SDK query -> Aggregate data -> Serialize with Gson -> Callback to JS.
+3.  **iOS Permission Request:** Cordova JS -> Plugin JS -> `execute("requestPermissions")` -> Swift `requestPermissions` method -> `HKHealthStore.requestAuthorization` -> HealthKit UI -> Completion Handler -> `DispatchQueue.main.async` -> Callback to JS.
+4.  **iOS Data Fetching:** Cordova JS -> Plugin JS -> `execute("getExerciseData")` -> Swift `getExerciseData` method -> Check Auth -> Parse Args -> `HKSampleQuery` -> Completion Handler -> Process `HKWorkout` samples -> Serialize with `JSONSerialization` -> `DispatchQueue.main.async` -> Callback to JS.

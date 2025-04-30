@@ -76,6 +76,31 @@
               </intent-filter>
           </activity-alias>
         </config-file>
+        <framework src="android/build.gradle" custom="true" type="gradleReference"/>
     </platform>
-    <framework src="android/build.gradle" custom="true" type="gradleReference"/>
+
+    <!-- iOS Platform Configuration -->
+    <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <feature name="RequestExercisePermissionsPlugin">
+                <param name="ios-package" value="RequestExercisePermissionsPlugin"/>
+            </feature>
+        </config-file>
+
+        <config-file target="*-Info.plist" parent="NSHealthShareUsageDescription">
+            <string>This app needs access to your workout data to display your exercise history.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSHealthUpdateUsageDescription">
+            <string>This app needs access to update your workout data.</string> <!-- Often required even for reading -->
+        </config-file>
+
+        <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/>
+
+        <framework src="HealthKit.framework" />
+
+        <source-file src="src/ios/RequestExercisePermissionsPlugin.swift" />
+        <!-- Add Bridging Header if needed later
+        <header-file src="src/ios/Bridging-Header.h" type="BridgingHeader" />
+        -->
+    </platform>
 </plugin>
