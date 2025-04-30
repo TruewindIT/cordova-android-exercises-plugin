@@ -1,4 +1,4 @@
-# Progress: Cordova Android Exercises Plugin (2025-04-30)
+# Progress: Cordova Health Exercises Plugin (2025-04-30)
 
 **What Works:**
 
@@ -9,35 +9,45 @@
     *   `plugin.xml` configured for Android platform (Kotlin sources, permissions, activity, build dependencies via `<framework>`).
     *   `android/build.gradle` declares core dependencies.
 *   **iOS (Swift):**
-    *   `plugin.xml` updated for iOS platform (Swift source, HealthKit framework link, `Info.plist` usage descriptions, `cordova-plugin-add-swift-support` dependency, entitlement hook definition).
-    *   `package.json` updated with hook dependencies (`plist`, `xcode`).
-    *   Hook script (`scripts/ios/add_healthkit_entitlement.js`) created to automate adding HealthKit entitlement and linking it in `.pbxproj`.
+    *   `plugin.xml` updated for iOS platform (Swift source, HealthKit framework link, `Info.plist` usage descriptions, `cordova-plugin-add-swift-support` dependency, and HealthKit entitlements configured directly using `<config-file>`).
     *   Swift code exists (`src/ios/RequestExercisePermissionsPlugin.swift`) for:
         *   Checking HealthKit availability.
-        *   Requesting permissions using `healthStore.requestAuthorization` (includes `#available` checks for specific distance types).
-        *   Fetching `HKWorkout` data using `HKSampleQuery` based on date range arguments.
-        *   Authorization check modified to allow `.sharingDenied` status (per user request).
-        *   Serializing fetched data to JSON using `JSONSerialization`.
+        *   Requesting permissions including basal energy and relevant distance types (with `#available` checks).
+        *   Fetching `HKWorkout` data using `HKSampleQuery`.
+        *   For each workout, fetch associated samples using `DispatchGroup` and multiple queries:
+            *   `HKStatisticsQuery` for active energy sum.
+            *   `HKStatisticsQuery` for basal energy sum.
+            *   `HKStatisticsQuery` for distance sum (dynamically typed based on activity).
+            *   `HKSampleQuery` for heart rate samples.
+        *   Calculate total energy/distance from query results (replacing deprecated `HKWorkout` properties).
+        *   Format output JSON with nested `samples` array as specified.
+        *   Include user modifications: Core auth check allows `.sharingDenied`, distance query proceeds if status is `.sharingDenied` or `.sharingAuthorized`, closures omit `[weak self]`, explicit thread safety for result aggregation removed.
 
 **What's Left to Build/Verify:**
 
-1.  **iOS Hook & Auth Testing:** Test the `after_prepare` hook script runs correctly during build and successfully configures the entitlement. Verify if this resolves the `.sharingDenied` status issue when running the app. Test the behavior of `getExerciseData` with the modified auth check.
+1.  **iOS Testing:** Thoroughly test the latest iOS implementation:
+    *   Verify the HealthKit capability is correctly applied via `plugin.xml`.
+    *   Run the app and test `requestPermissions` and `getExerciseData`.
+    *   Verify the output JSON format matches the requirement.
+    *   Observe behavior related to the modified authorization checks and distance query logic.
+    *   Check for runtime errors or unexpected behavior, especially related to potential retain cycles or race conditions.
 2.  **iOS Error Handling:** Review and improve error handling in Swift code, especially around query failures if permissions are denied.
-3.  **iOS Data Completeness:** Verify if all desired basic `HKWorkout` data points are fetched and returned correctly. Decide if more granular data is needed.
-4.  **README Documentation:** Create/update comprehensive usage instructions for both platforms, including hook dependency installation and provisioning profile requirements.
+3.  **iOS Distance Logic:** Potentially refine the dynamic distance type selection in `getDistanceType` helper for more workout types if needed.
+4.  **README Documentation:** Create/update comprehensive usage instructions for both platforms, including provisioning profile requirements.
 5.  **(Paused) Android Build Errors:** Resolve the persistent `compileSdkVersion` build error.
 6.  **(Paused) Android Testing:** End-to-end testing of Android implementation.
 7.  **(Paused) Android Error Handling:** Review and improve error handling in Kotlin code.
 8.  **(Paused) Android Data Completeness:** Verify data points fetched from Health Connect.
 
 **Current Status:**
-*   **iOS:** Core logic implemented, including automated entitlement hook and modified auth check. Requires testing and verification, particularly regarding the persistent authorization issue.
+*   **iOS:** Implementation updated to use statistics queries instead of deprecated properties, configures entitlements directly in `plugin.xml`, and incorporates user modifications to auth checks and code style. Requires testing and verification.
 *   **Android:** Implementation exists but is blocked by build configuration issues (currently paused).
 
 **Known Issues:**
 
-*   **iOS Authorization Status:** Persistent issue where `authorizationStatus(for:)` returns `.sharingDenied` (1) even when user reports permissions are granted in Settings. Investigation points towards entitlement/provisioning profile configuration. Hook script implemented as potential fix.
-*   **Android Build Error:** `compileSdkVersion is not specified. Please add it to build.gradle`. Root cause needs identification (likely incomplete `android/build.gradle`).
+*   **iOS Authorization Status:** Previous issue where `authorizationStatus(for:)` returned `.sharingDenied` (1) despite Settings. Root cause likely entitlement/provisioning. Needs verification. Behavior with modified auth checks needs testing.
+*   **Potential iOS Risks:** Removal of `[weak self]` may cause retain cycles. Removal of explicit thread safety may cause race conditions during result aggregation. Needs monitoring during testing.
+*   **Android Build Error:** `compileSdkVersion is not specified`. Needs resolution.
 *   **Incomplete `android/build.gradle`:** Needs proper library plugin configuration.
 
 **Evolution of Project Decisions:**
@@ -46,5 +56,6 @@
 *   Used a dedicated Activity (`HealthActivityPermissions.kt`) for Android permissions.
 *   Multiple attempts made to configure `android/build.gradle`.
 *   Added iOS platform support using Swift and HealthKit.
-*   **Implemented automated iOS entitlement configuration via Cordova hook.**
-*   **Modified iOS authorization check logic in `getExerciseData` (per user request) to allow `.sharingDenied` status.**
+*   Replaced deprecated HKWorkout properties with HKStatisticsQuery calculations.
+*   Implemented dynamic distance type querying based on workout activity.
+        *   Incorporated user changes (distance query condition, removal of `[weak self]`, removal of explicit thread safety).

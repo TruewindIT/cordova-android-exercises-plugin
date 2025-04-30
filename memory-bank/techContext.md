@@ -14,7 +14,7 @@
     *   Version: `androidx.health.connect:connect-client:1.1.0-alpha07` (specified in `android/build.gradle`).
     *   Key Components Used: `HealthConnectClient`, `PermissionController`, `HealthPermission`, `ExerciseSessionRecord`, `ReadRecordsRequest`, `TimeRangeFilter`.
 *   **Apple HealthKit Framework (iOS):** The primary API for accessing health and fitness data on iOS.
-    *   Key Components Used: `HKHealthStore`, `HKObjectType`, `HKWorkoutType`, `HKQuantityType`, `HKSampleQuery`, `NSPredicate`, `NSSortDescriptor`.
+    *   Key Components Used: `HKHealthStore`, `HKObjectType`, `HKWorkoutType`, `HKQuantityType`, `HKSampleQuery`, `HKStatisticsQuery`, `NSPredicate`, `NSSortDescriptor`.
 *   **Kotlin Coroutines:** Used for managing asynchronous operations on Android.
     *   Version: `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1`.
 *   **Serialization Libraries:**
@@ -22,9 +22,10 @@
     *   iOS: **Foundation.JSONSerialization**.
 *   **Other iOS Frameworks:**
     *   **Foundation:** Used for `ISO8601DateFormatter`, `DispatchQueue`, `JSONSerialization`.
-*   **Node.js Modules (for Hooks):**
-    *   `plist`: Used by iOS hook script to parse/build `.entitlements` file. Version: `^3.1.0`.
-    *   `xcode`: Used by iOS hook script to parse/modify `.pbxproj` file. Version: `^3.0.1`.
+
+        // Add specific checks for newer types if necessary, although mapping should handle them
+        // Example for underwaterDiving if it needed special naming and was iOS 16+
+        // if #available(iOS 16.0, *), self == .underwaterDiving { return "Underwater Diving" }
 
 **Development Setup & Build:**
 
@@ -34,8 +35,7 @@
     *   `plugin.xml` influences build via `<preference>` tags and `<framework>` tag for `android/build.gradle`.
 *   **iOS:**
     *   Build managed by Xcode via Cordova CLI.
-    *   `plugin.xml` configures framework linking (`HealthKit.framework`), `Info.plist` entries, and includes `cordova-plugin-add-swift-support` dependency.
-    *   An `after_prepare` hook script (`scripts/ios/add_healthkit_entitlement.js`) modifies the `.entitlements` file and `.pbxproj` build settings to ensure HealthKit capability is enabled. Requires Node.js and hook dependencies (`plist`, `xcode`) to be installed in the plugin directory.
+    *   `plugin.xml` configures framework linking (`HealthKit.framework`), `Info.plist` usage descriptions, includes `cordova-plugin-add-swift-support` dependency, and configures HealthKit entitlements directly using `<config-file target="*/Entitlements-*.plist">`.
 
 **Technical Constraints & Dependencies:**
 
@@ -47,10 +47,10 @@
     *   iOS: Requires iOS version supporting HealthKit (iOS 8+). Specific distance types require higher versions (e.g., 11.0, 11.2, 18.0 - checked using `#available`).
 *   **Permissions:**
     *   Android: Requires Health Connect read permissions declared in `AndroidManifest.xml` (via `plugin.xml`) and granted at runtime.
-    *   iOS: Requires `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` in `Info.plist` (via `plugin.xml`) and user authorization via `requestAuthorization`. Requires `com.apple.developer.healthkit` entitlement, managed by the hook script.
+    *   iOS: Requires `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` in `Info.plist` (via `plugin.xml`) and user authorization via `requestAuthorization`. Requires `com.apple.developer.healthkit` entitlement, configured directly in `plugin.xml`.
 *   **Android Build Environment:** Potential build errors related to `compileSdkVersion`, Kotlin versions, AndroidX compatibility, or Gradle configuration. The `android/build.gradle` is likely incomplete.
 *   **Apple Developer Account:** May be required for testing on physical iOS devices. Provisioning profile must include HealthKit capability.
-*   **Hook Dependencies:** The iOS entitlement hook requires `plist` and `xcode` Node modules to be installed (`npm install` in plugin directory).
+*   **Implementation Risks (iOS):** Current Swift code omits `[weak self]` in closures, risking retain cycles. Result aggregation relies on implicit `DispatchGroup` queue behavior, risking race conditions under load.
 
 **Tool Usage Patterns:**
 
@@ -61,9 +61,11 @@
     *   Gson: JSON serialization.
 *   **iOS:**
     *   `HKHealthStore`: Checking availability, requesting authorization, executing queries.
-    *   `HKSampleQuery`: Fetching workout data.
+    *   `HKSampleQuery`: Fetching workout and heart rate sample data.
+    *   `HKStatisticsQuery`: Calculating sum for active energy, basal energy, and distance.
     *   `JSONSerialization`: JSON serialization (Swift).
     *   `DispatchQueue.main.async`: Ensuring Cordova callbacks happen on the main thread (Swift).
+    *   `DispatchGroup`: Managing multiple asynchronous HealthKit queries for each workout.
     *   `#available`: Swift check for OS-specific API availability.
-    *   `plist` (Node.js module): Used by hook script to manage `.entitlements` file.
-    *   `xcode` (Node.js module): Used by hook script to manage `.pbxproj` file settings.
+    *   (Note: Closures currently omit `[weak self]`).
+    *   (Note: Result aggregation relies on implicit thread safety).

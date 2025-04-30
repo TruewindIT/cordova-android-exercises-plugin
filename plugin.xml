@@ -91,10 +91,14 @@
             <string>This app needs access to your workout data to display your exercise history.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSHealthUpdateUsageDescription">
-            <string>This app needs access to update your workout data.</string> <!-- Often required even for reading -->
+            <string>This app needs access to update your workout data.</string>
         </config-file>
 
-        <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/>
+        <config-file target="config.xml" parent="/*">
+            <preference name="UseSwiftLanguageVersion" value="6" />
+        </config-file>
+
+        <!-- <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/> -->
 
         <framework src="HealthKit.framework" />
 
@@ -103,6 +107,17 @@
         <header-file src="src/ios/Bridging-Header.h" type="BridgingHeader" />
         -->
 
-        <hook type="after_prepare" src="scripts/ios/add_healthkit_entitlement.js" />
+        <!-- <hook type="after_prepare" src="scripts/ios/add_healthkit_entitlement.js" /> -->
+
+
+    <!-- Entitlements -->
+    <config-file target="*/Entitlements-Debug.plist" parent="com.apple.developer.healthkit">
+        <true/>
+      </config-file>
+  
+      <config-file target="*/Entitlements-Release.plist" parent="com.apple.developer.healthkit">
+        <true/>
+      </config-file>
+      
     </platform>
 </plugin>

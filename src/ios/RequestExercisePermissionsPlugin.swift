@@ -25,24 +25,32 @@ import HealthKit
             return
         }
 
+        // Define base types
         var readTypes: Set<HKObjectType> = [
             HKObjectType.workoutType(),
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-            HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!, // Added for total energy calculation
+            HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
+            // Add all relevant distance types we might query later
             HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
             HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
             HKObjectType.quantityType(forIdentifier: .distanceSwimming)!,
-            HKObjectType.quantityType(forIdentifier: .distanceWheelchair)!
+            HKObjectType.quantityType(forIdentifier: .distanceWheelchair)!,
         ]
 
         // Add distance types available in newer OS versions conditionally
         if #available(iOS 18.0, *) {
-            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing)!)
+            // Note: Ensure this identifier truly requires iOS 18+ based on latest Apple docs if issues arise
+            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceRowing)!)
+            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distancePaddleSports)!)
+            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceSkatingSports)!)
+            
+            if let type = HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing) { readTypes.insert(type) }
         }
         if #available(iOS 11.2, *) {
-            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!)
+             if let type = HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports) { readTypes.insert(type) }
         }
+        // Add other distance types here if needed
 
         print("Debug: Requesting authorization for types: \(readTypes.map { $0.identifier }.joined(separator: ", "))")
 
@@ -73,53 +81,46 @@ import HealthKit
     func getExerciseData(command: CDVInvokedUrlCommand) {
         print("Debug: getExerciseData called")
 
-        // 1. Check HealthKit availability
         guard HKHealthStore.isHealthDataAvailable() else {
             sendError(message: "HealthKit not available", command: command)
             return
         }
 
-        // 2. Check Authorization Status
+        // Check Authorization Status
         let workoutType = HKObjectType.workoutType()
         let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let basalEnergyType = HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!
-        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)! // Using representative distance type
         let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        // Distance status checked dynamically in fetchSamples
 
         let workoutStatus = healthStore.authorizationStatus(for: workoutType)
         let activeEnergyStatus = healthStore.authorizationStatus(for: activeEnergyType)
-        let basalEnergyStatus = healthStore.authorizationStatus(for: basalEnergyType) // Check basal too
-        let distanceStatus = healthStore.authorizationStatus(for: distanceType)
+        let basalEnergyStatus = healthStore.authorizationStatus(for: basalEnergyType)
         let heartRateStatus = healthStore.authorizationStatus(for: heartRateType)
 
         print("""
-            Debug: Auth Status Check:
+            Debug: Auth Status Check (Core):
             Workout: \(workoutStatus.rawValue), \
             ActiveEnergy: \(activeEnergyStatus.rawValue), \
             BasalEnergy: \(basalEnergyStatus.rawValue), \
-            Distance: \(distanceStatus.rawValue), \
             HR: \(heartRateStatus.rawValue)
             """)
 
-        // Check if essential types have been determined (not .notDetermined)
-        // Note: Basal energy might not always be available or authorized, handle gracefully later
         guard workoutStatus != .notDetermined &&
               activeEnergyStatus != .notDetermined &&
-              // basalEnergyStatus != .notDetermined && // Optional: Basal might not be granted/needed if totalEnergyBurned on workout is used as fallback
-              distanceStatus != .notDetermined &&
+              // basalEnergyStatus != .notDetermined && // Basal might not be granted/needed
               heartRateStatus != .notDetermined else {
             var notDeterminedTypes = [String]()
              if workoutStatus == .notDetermined { notDeterminedTypes.append("Workouts") }
              if activeEnergyStatus == .notDetermined { notDeterminedTypes.append("Active Energy") }
              // if basalEnergyStatus == .notDetermined { notDeterminedTypes.append("Basal Energy") }
-             if distanceStatus == .notDetermined { notDeterminedTypes.append("Distance") }
              if heartRateStatus == .notDetermined { notDeterminedTypes.append("Heart Rate") }
             let errorMessage = "HealthKit authorization status not determined for essential types: \(notDeterminedTypes.joined(separator: ", ")). Please request permissions first."
             sendError(message: errorMessage, command: command)
             return
         }
 
-        // 3. Parse Arguments
+        // Parse Arguments
         guard let startDateStr = command.arguments[0] as? String,
               let endDateStr = command.arguments[1] as? String else {
             sendError(message: "Invalid arguments: Start and end date strings required", command: command)
@@ -136,7 +137,7 @@ import HealthKit
         }
         print("Info: Querying workouts from \(startDate) to \(endDate)")
 
-        // 4. Prepare Main Workout Query
+        // Prepare Main Workout Query
         let timePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
@@ -160,30 +161,32 @@ import HealthKit
 
             print("Info: Found \(workouts.count) workouts. Fetching detailed samples...")
 
-            // 5. Process Each Workout with Sub-Queries
+            // Process Each Workout with Sub-Queries
             var finalResults = [[String: Any]]()
             let allWorkoutsGroup = DispatchGroup()
-            let resultsQueue = DispatchQueue(label: "com.axians.plugin.resultsQueue", attributes: .concurrent)
+            // Using a serial queue for appending results to avoid race conditions simply.
+            let resultsQueue = DispatchQueue(label: "com.axians.plugin.resultsQueue")
 
             for workout in workouts {
                 allWorkoutsGroup.enter()
                 self.fetchSamples(for: workout) { workoutDetailDict in
                     if let workoutDetailDict = workoutDetailDict {
-                        resultsQueue.async(flags: .barrier) {
+                        resultsQueue.async { // Append results serially
                             finalResults.append(workoutDetailDict)
                             allWorkoutsGroup.leave()
                         }
                     } else {
                          print("Warning: Failed to fetch details for workout UUID: \(workout.uuid.uuidString)")
-                         allWorkoutsGroup.leave()
+                         allWorkoutsGroup.leave() // Leave even if fetching details failed
                     }
                 }
             }
 
-            // 6. Wait for all workouts and send final result
+            // Wait for all workouts and send final result
             allWorkoutsGroup.notify(queue: .main) {
                 print("Info: Finished processing all workouts (\(finalResults.count)). Serializing and sending result.")
-                resultsQueue.sync {
+                // Access finalResults safely after all appends are done by ensuring notify waits
+                resultsQueue.async { // Ensure sorting happens after all appends
                     do {
                         let sortedResults = finalResults.sorted { (dict1, dict2) -> Bool in
                             guard let dateStr1 = dict1["startDate"] as? String,
@@ -192,21 +195,23 @@ import HealthKit
                                   let date2 = dateFormatter.date(from: dateStr2) else { return false }
                             return date1 > date2 // Descending
                         }
+
                         let jsonData = try JSONSerialization.data(withJSONObject: sortedResults, options: [])
                         if let jsonString = String(data: jsonData, encoding: .utf8) {
-                            let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: jsonString)
-                            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
+                            // Switch back to main thread for Cordova callback
+                            DispatchQueue.main.async {
+                                let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: jsonString)
+                                self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
+                            }
                         } else {
                             self.sendError(message: "Failed to encode final results to JSON string", command: command)
                         }
                     } catch {
                         self.sendError(message: "Failed to serialize final results: \(error.localizedDescription)", command: command)
                     }
-                }
-            }
+                } // End resultsQueue.async
+            } // End allWorkoutsGroup.notify
         }
-
-        // 7. Execute the Main Workout Query
         healthStore.execute(workoutQuery)
     }
 
@@ -216,7 +221,7 @@ import HealthKit
         let sampleGroup = DispatchGroup()
         var activeCaloriesSum: Double? = nil
         var basalCaloriesSum: Double? = nil
-        var distanceSum: Double? = nil // Using a representative distance type sum
+        var distanceSum: Double? = nil
         var heartRateValues: [Double]? = nil
 
         let workoutPredicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: .strictStartDate)
@@ -225,10 +230,6 @@ import HealthKit
         let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let basalEnergyType = HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!
         let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
-        // Using distanceWalkingRunning as the representative type for the statistics query
-        // TODO: Ideally, query the distance type corresponding to workout.workoutActivityType
-        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
-
         let energyUnit = HKUnit.kilocalorie()
         let distanceUnit = HKUnit.meter()
         let hrUnit = HKUnit.count().unitDivided(by: .minute())
@@ -257,17 +258,28 @@ import HealthKit
         }
         healthStore.execute(basalCaloriesQuery)
 
-        // --- Query Distance Sum ---
-        sampleGroup.enter()
-        let distanceQuery = HKStatisticsQuery(quantityType: distanceType,
-                                              quantitySamplePredicate: workoutPredicate,
-                                              options: .cumulativeSum) { _, result, error in
-            defer { sampleGroup.leave() }
-            if let error = error { print("Error querying distance (\(distanceType.identifier)): \(error.localizedDescription)"); return }
-            distanceSum = result?.sumQuantity()?.doubleValue(for: distanceUnit)
-            print("Debug: Distance sum (\(distanceType.identifier)) for workout \(workout.uuid.uuidString): \(distanceSum ?? -1)")
+        // --- Query Distance Sum (Dynamically Typed) ---
+        if let distanceType = getDistanceType(for: workout.workoutActivityType) {
+             let distanceStatus = healthStore.authorizationStatus(for: distanceType)
+             print("Debug: Auth status for \(distanceType.identifier): \(distanceStatus.rawValue)")
+            // Proceed if permission is granted OR denied (per user request)
+            if distanceStatus == .sharingAuthorized || distanceStatus == .sharingDenied {
+                 sampleGroup.enter()
+                 let distanceQuery = HKStatisticsQuery(quantityType: distanceType,
+                                                       quantitySamplePredicate: workoutPredicate,
+                                                       options: .cumulativeSum) { _, result, error in
+                     defer { sampleGroup.leave() }
+                     if let error = error { print("Error querying distance (\(distanceType.identifier)): \(error.localizedDescription)"); return }
+                     distanceSum = result?.sumQuantity()?.doubleValue(for: distanceUnit)
+                     print("Debug: Distance sum (\(distanceType.identifier)) for workout \(workout.uuid.uuidString): \(distanceSum ?? -1)")
+                 }
+                 healthStore.execute(distanceQuery)
+             } else {
+                 print("Warning: Distance type \(distanceType.identifier) has status .notDetermined, skipping query.")
+             }
+        } else {
+            print("Debug: No specific distance type associated with activity type \(workout.workoutActivityType.name), skipping distance query.")
         }
-        healthStore.execute(distanceQuery)
 
 
         // --- Query Heart Rate Samples ---
@@ -311,9 +323,7 @@ import HealthKit
              samplesArray.append(heartRateSample)
 
              // --- Construct Main Workout Dictionary ---
-             // Calculate total energy by summing active and basal (if available)
              let totalCalculatedEnergy = (activeCaloriesSum ?? 0.0) + (basalCaloriesSum ?? 0.0)
-             // Use calculated distance sum
              let totalCalculatedDistance = distanceSum ?? 0.0
 
              let workoutDict: [String: Any] = [
@@ -321,8 +331,8 @@ import HealthKit
                  "endDate": workoutEndDateStr,
                  "duration": workout.duration,
                  "activity": workout.workoutActivityType.name,
-                 "totalDistance": totalCalculatedDistance, // Use calculated distance
-                 "totalEnergyBurned": totalCalculatedEnergy, // Use calculated total energy
+                 "totalDistance": totalCalculatedDistance,
+                 "totalEnergyBurned": totalCalculatedEnergy,
                  "samples": samplesArray
              ]
              completion(workoutDict)
@@ -331,6 +341,44 @@ import HealthKit
 
 
     // MARK: - Helper Functions
+
+    // Helper function to determine appropriate distance type based on workout activity
+    private func getDistanceType(for activityType: HKWorkoutActivityType) -> HKQuantityType? {
+        switch activityType {
+        case .running, .walking, .hiking: // Group walking/running types
+            return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)
+        case .cycling, .handCycling: // Group cycling types
+            return HKObjectType.quantityType(forIdentifier: .distanceCycling)
+        case .swimming:
+            return HKObjectType.quantityType(forIdentifier: .distanceSwimming)
+        case .wheelchairRunPace, .wheelchairWalkPace: // Group wheelchair types
+             return HKObjectType.quantityType(forIdentifier: .distanceWheelchair)
+        case .rowing:
+             if #available(iOS 18.0, *) { // Check availability
+             return HKObjectType.quantityType(forIdentifier: .distanceRowing)
+             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        case .paddleSports:
+             if #available(iOS 18.0, *) { // Check availability
+             return HKObjectType.quantityType(forIdentifier: .distancePaddleSports)
+             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        case .skatingSports:
+             if #available(iOS 18.0, *) { // Check availability
+             return HKObjectType.quantityType(forIdentifier: .distanceSkatingSports)
+             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        case .crossCountrySkiing:
+             if #available(iOS 18.0, *) { // Check availability
+                 return HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing)
+             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        case .downhillSkiing, .snowboarding, .snowSports: // Group snow sports
+             if #available(iOS 11.2, *) { // Check availability
+                 return HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)
+             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        default:
+            // Return nil if no specific distance type is typically associated
+            print("Debug: No distance type mapping for activity: \(activityType.name)")
+            return nil
+        }
+    }
 
     private func sendError(message: String, command: CDVInvokedUrlCommand) {
         print("Error: Plugin Error: \(message)")

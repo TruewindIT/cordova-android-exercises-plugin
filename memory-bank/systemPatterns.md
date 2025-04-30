@@ -10,10 +10,10 @@
     *   `RequestExercisePermissionsPlugin.swift`: Extends `CDVPlugin`. Handles actions dispatched from JavaScript. Interacts with the HealthKit framework.
 *   **Configuration (`plugin.xml`):** Defines plugin ID, version, JS module. Contains platform-specific sections (`<platform name="android">`, `<platform name="ios">`):
     *   **Android:** Specifies Kotlin source files, feature mapping, Android permissions, `AndroidManifest.xml` entries (permissions activity/alias), and includes `android/build.gradle` via `<framework>`.
-    *   **iOS:** Specifies Swift source file, feature mapping, links `HealthKit.framework`, adds `Info.plist` usage descriptions, includes `cordova-plugin-add-swift-support` dependency, and defines an `after_prepare` hook (`<hook>`) for entitlement configuration.
+    *   **iOS:** Specifies Swift source file, feature mapping, links `HealthKit.framework`, adds `Info.plist` usage descriptions, includes `cordova-plugin-add-swift-support` dependency, and configures HealthKit entitlements directly using `<config-file target="*/Entitlements-*.plist">`.
 *   **Build Configuration:**
     *   **Android (`android/build.gradle`):** Specifies dependencies (Health Connect client, Kotlin coroutines, Gson), configures source sets. (Note: Currently incomplete for a library plugin).
-    *   **iOS:** Managed via `plugin.xml` framework linking, dependencies, and hooks modifying Xcode project settings.
+    *   **iOS:** Managed via `plugin.xml` framework linking, dependencies, and direct entitlement configuration.
 
 **Key Technical Decisions:**
 
@@ -22,17 +22,16 @@
 *   **iOS Health Data:** Uses Apple's HealthKit framework.
 *   **Asynchronous Operations:**
     *   Android: Kotlin coroutines (`runBlocking`, `async`, `launch`).
-    *   iOS: HealthKit's asynchronous query completion handlers (`HKSampleQuery`, `requestAuthorization`). Main thread dispatch (`DispatchQueue.main.async`) used for Cordova callbacks.
+    *   iOS: HealthKit's asynchronous query completion handlers (`HKSampleQuery`, `requestAuthorization`). Main thread dispatch (`DispatchQueue.main.async`) used for Cordova callbacks. (Note: Current implementation omits `[weak self]` in closures, potential retain cycle risk). Result aggregation relies on implicit `DispatchGroup` notification queue behavior for thread safety.
 *   **Permissions Handling:**
     *   Android: Dedicated Activity (`HealthActivityPermissions`) launched from the plugin.
-    *   iOS: Uses `HKHealthStore.requestAuthorization`. Pre-query check in `getExerciseData` verifies status is not `.notDetermined` (allows `.sharingDenied` to proceed, query may fail later).
-*   **Automated Entitlement Configuration (iOS):** Uses a Cordova hook script (`scripts/ios/add_healthkit_entitlement.js`) with `plist` and `xcode` Node modules to add the `com.apple.developer.healthkit` key to the `.entitlements` file and link it in the Xcode project's build settings (`CODE_SIGN_ENTITLEMENTS`).
+    *   iOS: Uses `HKHealthStore.requestAuthorization`. Pre-query check in `getExerciseData` verifies core statuses are not `.notDetermined`. Distance sub-query proceeds if distance status is `.sharingAuthorized` or `.sharingDenied`. HealthKit entitlement configured directly in `plugin.xml`.
 *   **Data Serialization:**
     *   Android: Gson library.
     *   iOS: `JSONSerialization`.
 *   **Dependency Management:**
     *   Android: Via `android/build.gradle` referenced in `plugin.xml`.
-    *   iOS: Via `<framework>` and `<dependency>` tags in `plugin.xml`. Hook script dependencies managed via plugin's `package.json`.
+    *   iOS: Via `<framework>` and `<dependency>` tags in `plugin.xml`.
 
 **Component Relationships:**
 
@@ -74,5 +73,4 @@ graph TD
 1.  **Android Permission Request:** Cordova JS -> Plugin JS -> `execute("requestPermissions")` -> Kotlin `execute` -> `checkPermissions()` -> (If needed) `requestPermissions()` -> `HealthActivityPermissions.kt` -> Health Connect UI -> Callback to JS.
 2.  **Android Data Fetching:** Cordova JS -> Plugin JS -> `execute("getExerciseData")` -> Kotlin `execute` -> `checkPermissions()` -> (If granted) `getExerciseData()` -> Coroutine launch -> Health Connect SDK query -> Aggregate data -> Serialize with Gson -> Callback to JS.
 3.  **iOS Permission Request:** Cordova JS -> Plugin JS -> `execute("requestPermissions")` -> Swift `requestPermissions` method -> `HKHealthStore.requestAuthorization` -> HealthKit UI -> Completion Handler -> `DispatchQueue.main.async` -> Callback to JS.
-4.  **iOS Data Fetching:** Cordova JS -> Plugin JS -> `execute("getExerciseData")` -> Swift `getExerciseData` method -> Check Auth (`!= .notDetermined`) -> Parse Args -> `HKSampleQuery` -> Completion Handler (Query may fail here if permission was actually denied) -> Process `HKWorkout` samples -> Serialize with `JSONSerialization` -> `DispatchQueue.main.async` -> Callback to JS (with data or query error).
-5.  **iOS Build Hook:** `cordova prepare ios` / `cordova build ios` -> `after_prepare` event -> Executes `scripts/ios/add_healthkit_entitlement.js` -> Modifies `.entitlements` file -> Modifies `project.pbxproj` (`CODE_SIGN_ENTITLEMENTS`).
+4.  **iOS Data Fetching:** Cordova JS -> Plugin JS -> `execute("getExerciseData")` -> Swift `getExerciseData` method -> Check Core Auth (`!= .notDetermined`) -> Parse Args -> `HKSampleQuery` for Workouts -> For each workout: `fetchSamples` (runs 4 sub-queries: Active Energy, Basal Energy, Distance [if status != .notDetermined], Heart Rate) -> Use `DispatchGroup` to wait for sub-queries -> Construct workout dictionary -> Use outer `DispatchGroup` to wait for all workouts -> Aggregate results (no explicit locking) -> Serialize with `JSONSerialization` -> `DispatchQueue.main.async` -> Callback to JS.
