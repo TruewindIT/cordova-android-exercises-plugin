@@ -1,46 +1,56 @@
-# Active Context: Cordova Android Exercises Plugin (2025-04-30)
+# Active Context: Cordova Health Exercises Plugin (2025-04-30)
 
-**Current Focus:** Implementing the iOS version of the plugin using Swift and Apple's HealthKit framework to mirror the Android functionality (`requestPermissions`, `getExerciseData`). The Android build issues are currently paused.
+**Current Focus:** Troubleshooting iOS HealthKit authorization issues (`.sharingDenied` status despite user granting permissions) and implementing/refining an automated entitlement hook. Android build issues remain paused.
 
 **Recent Changes:**
 
-*   **iOS Implementation:**
-    *   Updated `plugin.xml` to include the `<platform name="ios">` section, linking `HealthKit.framework`, adding privacy usage descriptions (`NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`), and specifying the Swift source file (`src/ios/RequestExercisePermissionsPlugin.swift`).
-    *   Created the main Swift plugin file: `src/ios/RequestExercisePermissionsPlugin.swift`.
-    *   Implemented the `requestPermissions` method in Swift, handling the HealthKit authorization flow using `healthStore.requestAuthorization`.
-    *   Implemented the `getExerciseData` method in Swift, using `HKSampleQuery` to fetch `HKWorkout` data based on start/end dates provided as arguments, and serializing the results to JSON. Added basic error handling and main thread dispatch for callbacks.
+*   **iOS Implementation & Troubleshooting:**
+    *   Updated `plugin.xml` for iOS: Added `HealthKit.framework`, privacy descriptions, Swift source file reference, `cordova-plugin-add-swift-support` dependency, and an `after_prepare` hook definition (`scripts/ios/add_healthkit_entitlement.js`).
+    *   Created `src/ios/RequestExercisePermissionsPlugin.swift` with initial `requestPermissions` and `getExerciseData` methods.
+    *   Refined `requestPermissions` to include multiple distance types and added `#available` checks for OS-specific types (`distanceCrossCountrySkiing` for iOS 18.0+, `distanceDownhillSnowSports` for iOS 11.2+).
+    *   Added logging to `getExerciseData` to check `authorizationStatus` before querying.
+    *   Modified `getExerciseData` authorization check (per user request) to only guard against `.notDetermined`, allowing `.sharingDenied` to proceed (expecting query to fail later).
+*   **iOS Entitlement Hook:**
+    *   Added `plist` and `xcode` Node modules as dev dependencies to `package.json`.
+    *   Created hook script `scripts/ios/add_healthkit_entitlement.js` that:
+        *   Modifies/creates the `.entitlements` file to add `com.apple.developer.healthkit`.
+        *   Uses the `xcode` module to modify the `.pbxproj` file, setting the `CODE_SIGN_ENTITLEMENTS` build setting to link the entitlements file.
 *   **Android:**
     *   Reverted previous changes to `android/build.gradle` and removed commented-out code based on user feedback.
 
 **Next Steps:**
 
-1.  **Test iOS Plugin:** Thoroughly test the `requestPermissions` and `getExerciseData` functions on an iOS device/simulator within a sample Cordova application.
-2.  **Refine iOS Error Handling:** Improve error reporting and handling in the Swift code, particularly around edge cases in HealthKit queries and data serialization.
-3.  **Update Memory Bank:** Update `progress.md`, `systemPatterns.md`, and `techContext.md` to reflect the iOS implementation details.
-4.  **Documentation:** Update `README.md` with usage instructions for both Android and iOS platforms.
-5.  **(Paused)** Revisit Android build issues (`compileSdkVersion`) when focus returns to the Android platform.
+1.  **Test iOS Entitlement Hook & Auth:** Build the iOS platform (`cordova build ios` after `npm install` in plugin dir) and verify:
+    *   The hook script runs without errors (check build logs).
+    *   The HealthKit capability is added and the `.entitlements` file is correctly referenced in the Xcode project (`platforms/ios/`).
+    *   Run the app and test if the `sharingDenied` issue is resolved. Observe the detailed auth status logs and query results/errors.
+2.  **Verify Provisioning Profile (User):** User to confirm the provisioning profile includes the HealthKit capability.
+3.  **Refine iOS Error Handling:** Based on testing, improve error reporting.
+4.  **Update Memory Bank:** Update `progress.md`.
+5.  **Documentation:** Update `README.md` with usage instructions for both platforms, including notes on hook dependencies and provisioning.
+6.  **(Paused)** Revisit Android build issues.
 
 **Active Decisions & Considerations:**
 
-*   **iOS Language:** Swift is used for the native iOS implementation.
-*   **iOS Framework:** Apple HealthKit is used for accessing health data.
-*   **Data Fetching (iOS):** Currently fetching basic `HKWorkout` details. More granular data (e.g., heart rate samples *during* a workout) might require additional, more complex queries if needed later.
-*   **Android Build Issues:** Resolution is paused while focusing on iOS. The minimal `android/build.gradle` likely still needs proper configuration for a library plugin.
-*   **Kotlin Implementation (Android):** Still the chosen language for the Android part.
+*   **iOS Language/Framework:** Swift / HealthKit.
+*   **Automated Entitlement:** Implemented via Cordova hook using `plist` and `xcode` modules.
+*   **iOS Authorization Check:** Modified `getExerciseData` check to allow `.sharingDenied` (per user request), understanding the query might fail later. This deviates from standard practice.
+*   **Android Build Issues:** Paused.
 
 **Important Patterns & Preferences:**
 
 *   Use Swift for native iOS code.
 *   Use Kotlin coroutines for asynchronous Health Connect operations (Android).
 *   Use `HKSampleQuery` for fetching HealthKit data (iOS).
-*   Structure data returned to JavaScript as JSON (using Gson for Android, `JSONSerialization` for iOS).
+*   Structure data returned to JavaScript as JSON.
 *   Follow standard Cordova plugin structure.
-*   Dispatch HealthKit callbacks to the main thread before sending results to Cordova.
+*   Dispatch HealthKit callbacks to the main thread.
+*   Use Cordova hooks for build process modifications where necessary (like entitlements).
 
 **Learnings & Insights:**
 
-*   Cordova plugin development requires platform-specific configurations in `plugin.xml` (e.g., frameworks, Info.plist entries).
-*   HealthKit requires explicit user authorization for specific data types. The authorization flow is asynchronous.
-*   Fetching HealthKit data involves creating specific query types (e.g., `HKSampleQuery`) with predicates and handling results in asynchronous callbacks.
-*   Swift integration in Cordova plugins is straightforward using the `@objc` attribute for exposed methods.
-*   Care must be taken with threading when handling asynchronous callbacks from native APIs before calling back to Cordova's JavaScript layer.
+*   HealthKit authorization can be tricky. Status reported by `authorizationStatus(for:)` might not immediately match user actions or Settings app state, often due to entitlement or provisioning profile issues.
+*   The `success` parameter in `requestAuthorization`'s callback only indicates the process completed, not that specific permissions were granted.
+*   Correctly configuring entitlements (`com.apple.developer.healthkit`) and linking the `.entitlements` file via `CODE_SIGN_ENTITLEMENTS` build setting is crucial for HealthKit access.
+*   Provisioning profiles must also include the HealthKit capability.
+*   Cordova hooks, combined with Node modules like `plist` and `xcode`, can automate modifications to native project files during the build.

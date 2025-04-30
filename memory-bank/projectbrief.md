@@ -1,13 +1,14 @@
-# Project Brief: Cordova Android Exercises Plugin
+# Project Brief: Cordova Health Exercises Plugin (Android & iOS)
 
-**Goal:** Create a Cordova plugin for Android to extract exercise session data from the Android Health Connect SDK.
+**Goal:** Create a Cordova plugin for Android and iOS to extract exercise session data from the native health platforms (Android Health Connect SDK and Apple HealthKit).
 
 **Core Requirements:**
 
 *   Integrate with the Health Connect SDK on Android.
-*   Provide a JavaScript interface for Cordova applications to interact with the plugin.
-*   Request necessary permissions from the user to read health data.
-*   Fetch exercise session records, including associated data like distance, calories burned, and heart rate.
-*   Return the fetched data in a structured format (JSON) to the Cordova application.
+*   Integrate with the HealthKit framework on iOS.
+*   Provide a unified JavaScript interface (`requestPermissions`, `getExerciseData`) for Cordova applications to interact with the plugin on both platforms.
+*   Request necessary permissions from the user to read health data according to platform best practices.
+*   Fetch exercise session/workout records, including associated data like distance, calories burned, and heart rate where available.
+*   Return the fetched data in a consistent structured format (JSON) to the Cordova application.
 
-**Target Platform:** Android
+**Target Platforms:** Android, iOS

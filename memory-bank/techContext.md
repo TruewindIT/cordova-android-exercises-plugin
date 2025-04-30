@@ -21,17 +21,21 @@
     *   Android: **Gson** (`com.google.code.gson:gson:2.8.9`).
     *   iOS: **Foundation.JSONSerialization**.
 *   **Other iOS Frameworks:**
-    *   **Foundation:** Used for `ISO8601DateFormatter`, `DispatchQueue`.
+    *   **Foundation:** Used for `ISO8601DateFormatter`, `DispatchQueue`, `JSONSerialization`.
+*   **Node.js Modules (for Hooks):**
+    *   `plist`: Used by iOS hook script to parse/build `.entitlements` file. Version: `^3.1.0`.
+    *   `xcode`: Used by iOS hook script to parse/modify `.pbxproj` file. Version: `^3.0.1`.
 
 **Development Setup & Build:**
 
-*   Requires a standard Cordova development environment setup for the target platforms (Android SDK, Gradle, macOS, Xcode, iOS SDK).
+*   Requires a standard Cordova development environment setup for the target platforms (Android SDK, Gradle, macOS, Xcode, iOS SDK, Node.js/npm).
 *   **Android:**
     *   Build managed by Gradle. `compileSdkVersion` needs confirmation (likely 33+).
     *   `plugin.xml` influences build via `<preference>` tags and `<framework>` tag for `android/build.gradle`.
 *   **iOS:**
     *   Build managed by Xcode via Cordova CLI.
-    *   `plugin.xml` configures framework linking (`HealthKit.framework`) and `Info.plist` entries.
+    *   `plugin.xml` configures framework linking (`HealthKit.framework`), `Info.plist` entries, and includes `cordova-plugin-add-swift-support` dependency.
+    *   An `after_prepare` hook script (`scripts/ios/add_healthkit_entitlement.js`) modifies the `.entitlements` file and `.pbxproj` build settings to ensure HealthKit capability is enabled. Requires Node.js and hook dependencies (`plist`, `xcode`) to be installed in the plugin directory.
 
 **Technical Constraints & Dependencies:**
 
@@ -40,12 +44,13 @@
     *   iOS: Requires device/simulator supporting HealthKit. Checked via `HKHealthStore.isHealthDataAvailable()`.
 *   **OS Versions:**
     *   Android: Health Connect requires API 28+ (Android 9+). Plugin `minSdkVersion` needs verification (currently 24 in commented code).
-    *   iOS: Requires iOS version supporting HealthKit and the Swift features used (e.g., iOS 8+ for basic HealthKit, potentially higher depending on specific APIs).
+    *   iOS: Requires iOS version supporting HealthKit (iOS 8+). Specific distance types require higher versions (e.g., 11.0, 11.2, 18.0 - checked using `#available`).
 *   **Permissions:**
     *   Android: Requires Health Connect read permissions declared in `AndroidManifest.xml` (via `plugin.xml`) and granted at runtime.
-    *   iOS: Requires `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` in `Info.plist` (via `plugin.xml`) and user authorization via `requestAuthorization`.
+    *   iOS: Requires `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` in `Info.plist` (via `plugin.xml`) and user authorization via `requestAuthorization`. Requires `com.apple.developer.healthkit` entitlement, managed by the hook script.
 *   **Android Build Environment:** Potential build errors related to `compileSdkVersion`, Kotlin versions, AndroidX compatibility, or Gradle configuration. The `android/build.gradle` is likely incomplete.
-*   **Apple Developer Account:** May be required for testing on physical iOS devices.
+*   **Apple Developer Account:** May be required for testing on physical iOS devices. Provisioning profile must include HealthKit capability.
+*   **Hook Dependencies:** The iOS entitlement hook requires `plist` and `xcode` Node modules to be installed (`npm install` in plugin directory).
 
 **Tool Usage Patterns:**
 
@@ -57,5 +62,8 @@
 *   **iOS:**
     *   `HKHealthStore`: Checking availability, requesting authorization, executing queries.
     *   `HKSampleQuery`: Fetching workout data.
-    *   `JSONSerialization`: JSON serialization.
-    *   `DispatchQueue.main.async`: Ensuring Cordova callbacks happen on the main thread.
+    *   `JSONSerialization`: JSON serialization (Swift).
+    *   `DispatchQueue.main.async`: Ensuring Cordova callbacks happen on the main thread (Swift).
+    *   `#available`: Swift check for OS-specific API availability.
+    *   `plist` (Node.js module): Used by hook script to manage `.entitlements` file.
+    *   `xcode` (Node.js module): Used by hook script to manage `.pbxproj` file settings.

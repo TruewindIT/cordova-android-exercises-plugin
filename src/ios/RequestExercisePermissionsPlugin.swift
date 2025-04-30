@@ -90,11 +90,40 @@ import HealthKit
             return
         }
 
+        // Check authorization status for essential types
         let workoutType = HKObjectType.workoutType()
-        guard healthStore.authorizationStatus(for: workoutType) == .sharingAuthorized else {
-            sendError(message: "HealthKit authorization not granted for workouts", command: command)
+        let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+        // Using a common distance type for the check, assuming permission for one implies others were likely prompted.
+        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
+        let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+
+        let workoutStatus = healthStore.authorizationStatus(for: workoutType)
+        let energyStatus = healthStore.authorizationStatus(for: energyType)
+        let distanceStatus = healthStore.authorizationStatus(for: distanceType)
+        let heartRateStatus = healthStore.authorizationStatus(for: heartRateType)
+
+        // Log statuses for debugging
+        // HKAuthorizationStatus raw values: 0 = notDetermined, 1 = sharingDenied, 2 = sharingAuthorized
+        print("Auth Status - Workout: \(workoutStatus.rawValue), Energy: \(energyStatus.rawValue), Distance: \(distanceStatus.rawValue), HR: \(heartRateStatus.rawValue)")
+
+        // Check if essential types have been determined (not .notDetermined)
+        // Allows proceeding even if status is .sharingDenied, per user request.
+        guard workoutStatus != .notDetermined &&
+              energyStatus != .notDetermined &&
+              distanceStatus != .notDetermined &&
+              heartRateStatus != .notDetermined else {
+
+            var notDeterminedTypes = [String]()
+            if workoutStatus == .notDetermined { notDeterminedTypes.append("Workouts") }
+            if energyStatus == .notDetermined { notDeterminedTypes.append("Active Energy") }
+            if distanceStatus == .notDetermined { notDeterminedTypes.append("Distance") }
+            if heartRateStatus == .notDetermined { notDeterminedTypes.append("Heart Rate") }
+
+            let errorMessage = "HealthKit authorization status not determined for essential types: \(notDeterminedTypes.joined(separator: ", ")). Please request permissions first."
+            sendError(message: errorMessage, command: command)
             return
         }
+        // Note: If status is .sharingDenied for any type, the following query may fail or return no data.
 
         // 2. Parse arguments (expecting ISO 8601 date strings for start and end)
         guard let startDateStr = command.arguments[0] as? String,
@@ -141,7 +170,7 @@ import HealthKit
                     "startDate": dateFormatter.string(from: workout.startDate),
                     "endDate": dateFormatter.string(from: workout.endDate),
                     "duration": workout.duration, // in seconds
-                    "workoutActivityType": workout.workoutActivityType.rawValue, // Raw integer value
+                    "workoutActivityType": workout.workoutActivityType.name, // Raw integer value
                     // Consider adding a helper to map rawValue to a string description if needed
                     "sourceRevision": [ // Info about the app that saved the data
                         "source": workout.sourceRevision.source.name,
@@ -192,5 +221,110 @@ import HealthKit
          DispatchQueue.main.async {
             self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
          }
+    }
+    
+}
+extension HKWorkoutActivityType {
+
+    /// A human-readable name for the workout activity type.
+    var name: String {
+        switch self {
+        case .americanFootball: return "American Football"
+        case .archery: return "Archery"
+        case .australianFootball: return "Australian Football"
+        case .badminton: return "Badminton"
+        case .baseball: return "Baseball"
+        case .basketball: return "Basketball"
+        case .bowling: return "Bowling"
+        case .boxing: return "Boxing"
+        case .climbing: return "Climbing"
+        case .cricket: return "Cricket"
+        case .crossTraining: return "Cross Training"
+        case .curling: return "Curling"
+        case .cycling: return "Cycling"
+        case .dance: return "Dance"
+        case .elliptical: return "Elliptical"
+        case .equestrianSports: return "Equestrian Sports"
+        case .fencing: return "Fencing"
+        case .fishing: return "Fishing"
+        case .functionalStrengthTraining: return "Functional Strength Training"
+        case .golf: return "Golf"
+        case .gymnastics: return "Gymnastics"
+        case .handball: return "Handball"
+        case .hiking: return "Hiking"
+        case .hockey: return "Hockey"
+        case .hunting: return "Hunting"
+        case .lacrosse: return "Lacrosse"
+        case .martialArts: return "Martial Arts"
+        case .mindAndBody: return "Mind and Body"
+        case .mixedMetabolicCardioTraining: return "Mixed Metabolic Cardio Training" // Deprecated
+        case .paddleSports: return "Paddle Sports"
+        case .play: return "Play"
+        case .preparationAndRecovery: return "Preparation and Recovery"
+        case .racquetball: return "Racquetball"
+        case .rowing: return "Rowing"
+        case .rugby: return "Rugby"
+        case .running: return "Running"
+        case .sailing: return "Sailing"
+        case .skatingSports: return "Skating Sports"
+        case .snowSports: return "Snow Sports"
+        case .soccer: return "Soccer"
+        case .softball: return "Softball"
+        case .squash: return "Squash"
+        case .stairClimbing: return "Stair Climbing"
+        case .surfingSports: return "Surfing Sports"
+        case .swimming: return "Swimming"
+        case .tableTennis: return "Table Tennis"
+        case .tennis: return "Tennis"
+        case .trackAndField: return "Track and Field"
+        case .traditionalStrengthTraining: return "Traditional Strength Training"
+        case .volleyball: return "Volleyball"
+        case .walking: return "Walking"
+        case .waterFitness: return "Water Fitness"
+        case .waterPolo: return "Water Polo"
+        case .waterSports: return "Water Sports"
+        case .wrestling: return "Wrestling"
+        case .yoga: return "Yoga"
+
+        // Cases introduced in later iOS versions
+        case .barre: return "Barre"
+        case .coreTraining: return "Core Training"
+        case .crossCountrySkiing: return "Cross Country Skiing"
+        case .downhillSkiing: return "Downhill Skiing"
+        case .flexibility: return "Flexibility"
+        case .highIntensityIntervalTraining: return "High Intensity Interval Training"
+        case .jumpRope: return "Jump Rope"
+        case .kickboxing: return "Kickboxing"
+        case .pilates: return "Pilates"
+        case .snowboarding: return "Snowboarding"
+        case .stairs: return "Stairs"
+        case .stepTraining: return "Step Training"
+        case .wheelchairWalkPace: return "Wheelchair Walk Pace"
+        case .wheelchairRunPace: return "Wheelchair Run Pace"
+        case .taiChi: return "Tai Chi"
+        case .mixedCardio: return "Mixed Cardio"
+        case .handCycling: return "Hand Cycling"
+        case .discSports: return "Disc Sports"
+        case .fitnessGaming: return "Fitness Gaming"
+        case .cooldown: return "Cooldown"
+        case .warmUp: return "Warm Up"
+        case .rollerSports: return "Roller Sports"
+        case .indoorCycling: return "Indoor Cycling"
+        case .indoorRunning: return "Indoor Running"
+        case .indoorWalking: return "Indoor Walking"
+        case .stairSledding: return "Stair Sledding"
+        case .wheelchair: return "Wheelchair"
+        case .swimBikeRun: return "Swim Bike Run" // Multisport
+        case .transition: return "Transition" // Multisport transition
+        case .underwaterDiving: return "Underwater Diving"
+        case .other: return "Other"
+
+        // Handle potential new cases or unknown values gracefully
+        @unknown default:
+            // This will catch any new cases added in future iOS versions
+            // that haven't been explicitly added to this switch yet.
+            // You can return a generic name or the raw value for debugging.
+            return "Unknown Activity Type (\(self.rawValue))"
+        }
     }
 }
