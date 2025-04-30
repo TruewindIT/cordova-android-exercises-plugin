@@ -1,0 +1,78 @@
+[
+    {
+        "startDate": "2025-01-30T23:44:49.136Z",
+        "activity": "Traditional Strength Training",
+        "samples": [
+            {
+                "startDate": "2025-01-30T23:44:49.136Z",
+                "additionalData": "ACTIVE_CALORIES_BURNED",
+                "values": [
+                    804.67100000000005
+                ],
+                "endDate": "2025-01-31T01:06:13.394Z",
+                "block": 1
+            },
+            {
+                "block": 1,
+                "values": [
+                    108,
+                    109,
+                    111,
+                    110,
+                    122.99999999999999,
+                    142,
+                    144,
+                    140,
+                    139.00000000000003,
+                    140,
+                    141,...
+                ],
+                "endDate": "2025-01-31T01:06:13.394Z",
+                "additionalData": "HEART_RATE",
+                "startDate": "2025-01-30T23:44:49.136Z"
+            }
+        ],
+        "endDate": "2025-01-31T01:06:13.394Z",
+        "duration": 4884.2580599784851,
+        "totalDistance": 747.10538788582198,
+        "totalEnergyBurned": 943.83799999999997
+    },
+    {
+        "samples": [
+            {
+                "startDate": "2025-01-27T23:52:35.649Z",
+                "block": 1,
+                "values": [
+                    477.68399999999878
+                ],
+                "additionalData": "ACTIVE_CALORIES_BURNED",
+                "endDate": "2025-01-28T00:25:12.196Z"
+            },
+            {
+                "startDate": "2025-01-27T23:52:35.649Z",
+                "endDate": "2025-01-28T00:25:12.196Z",
+                "block": 1,
+                "values": [
+                    105,
+                    104,
+                    113,
+                    113,
+                    113,
+                    115,
+                    114,
+                    112,
+                    112,
+                    112,
+                    112,...
+                ],
+                "additionalData": "HEART_RATE"
+            }
+        ],
+        "totalEnergyBurned": 533.9239999999985,
+        "activity": "Running",
+        "totalDistance": 4810.4785224304069,
+        "startDate": "2025-01-27T23:52:35.649Z",
+        "duration": 1921.8644837141037,
+        "endDate": "2025-01-28T00:25:12.196Z"
+    }
+]

@@ -1,11 +1,9 @@
 import Cordova
 import HealthKit
-// import OSLog // Removed logging import
 
 @objc(RequestExercisePermissionsPlugin) class RequestExercisePermissionsPlugin : CDVPlugin {
 
     let healthStore = HKHealthStore()
-    // Removed logger instance variable
 
     override func pluginInitialize() {
         super.pluginInitialize()
@@ -30,6 +28,7 @@ import HealthKit
         var readTypes: Set<HKObjectType> = [
             HKObjectType.workoutType(),
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!, // Added for total energy calculation
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
             HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
             HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
@@ -37,6 +36,7 @@ import HealthKit
             HKObjectType.quantityType(forIdentifier: .distanceWheelchair)!
         ]
 
+        // Add distance types available in newer OS versions conditionally
         if #available(iOS 18.0, *) {
             readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing)!)
         }
@@ -55,16 +55,12 @@ import HealthKit
             } else {
                 if success {
                     print("Info: HealthKit authorization request process completed successfully (permissions may or may not be granted).")
-                    // Note: Success here only means the prompt was shown and dismissed without error.
-                    // We still need to check individual statuses before querying.
                     pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: "Authorization request processed.")
                 } else {
-                    // This 'else' block might be rare if error is nil, but handles unexpected cases.
                     print("Warning: HealthKit authorization request process failed without error.")
                     pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: "Authorization denied or failed")
                 }
             }
-            // Ensure the callback is on the main thread
             DispatchQueue.main.async {
                 self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
             }
@@ -83,41 +79,45 @@ import HealthKit
             return
         }
 
-        // 2. Check Authorization Status (per user request, only check for .notDetermined)
+        // 2. Check Authorization Status
         let workoutType = HKObjectType.workoutType()
-        let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)! // Representative distance
+        let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+        let basalEnergyType = HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!
+        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)! // Using representative distance type
         let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
 
         let workoutStatus = healthStore.authorizationStatus(for: workoutType)
-        let energyStatus = healthStore.authorizationStatus(for: energyType)
+        let activeEnergyStatus = healthStore.authorizationStatus(for: activeEnergyType)
+        let basalEnergyStatus = healthStore.authorizationStatus(for: basalEnergyType) // Check basal too
         let distanceStatus = healthStore.authorizationStatus(for: distanceType)
         let heartRateStatus = healthStore.authorizationStatus(for: heartRateType)
 
-        // Log statuses for debugging using print
         print("""
             Debug: Auth Status Check:
             Workout: \(workoutStatus.rawValue), \
-            Energy: \(energyStatus.rawValue), \
+            ActiveEnergy: \(activeEnergyStatus.rawValue), \
+            BasalEnergy: \(basalEnergyStatus.rawValue), \
             Distance: \(distanceStatus.rawValue), \
             HR: \(heartRateStatus.rawValue)
             """)
 
+        // Check if essential types have been determined (not .notDetermined)
+        // Note: Basal energy might not always be available or authorized, handle gracefully later
         guard workoutStatus != .notDetermined &&
-              energyStatus != .notDetermined &&
+              activeEnergyStatus != .notDetermined &&
+              // basalEnergyStatus != .notDetermined && // Optional: Basal might not be granted/needed if totalEnergyBurned on workout is used as fallback
               distanceStatus != .notDetermined &&
               heartRateStatus != .notDetermined else {
             var notDeterminedTypes = [String]()
-            // ... (construct list of notDeterminedTypes as before) ...
              if workoutStatus == .notDetermined { notDeterminedTypes.append("Workouts") }
-             if energyStatus == .notDetermined { notDeterminedTypes.append("Active Energy") }
+             if activeEnergyStatus == .notDetermined { notDeterminedTypes.append("Active Energy") }
+             // if basalEnergyStatus == .notDetermined { notDeterminedTypes.append("Basal Energy") }
              if distanceStatus == .notDetermined { notDeterminedTypes.append("Distance") }
              if heartRateStatus == .notDetermined { notDeterminedTypes.append("Heart Rate") }
             let errorMessage = "HealthKit authorization status not determined for essential types: \(notDeterminedTypes.joined(separator: ", ")). Please request permissions first."
             sendError(message: errorMessage, command: command)
             return
         }
-        // Note: If status is .sharingDenied for any type, subsequent queries may fail or return no data.
 
         // 3. Parse Arguments
         guard let startDateStr = command.arguments[0] as? String,
@@ -153,7 +153,6 @@ import HealthKit
 
             guard let workouts = samples as? [HKWorkout], !workouts.isEmpty else {
                 print("Info: No workouts found in the specified date range.")
-                // Send empty array for success case with no results
                 let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: "[]")
                 self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
                 return
@@ -163,40 +162,46 @@ import HealthKit
 
             // 5. Process Each Workout with Sub-Queries
             var finalResults = [[String: Any]]()
-            // Use a dispatch group to wait for all sub-queries for all workouts
             let allWorkoutsGroup = DispatchGroup()
+            let resultsQueue = DispatchQueue(label: "com.axians.plugin.resultsQueue", attributes: .concurrent)
 
             for workout in workouts {
-                allWorkoutsGroup.enter() // Enter group for each workout
-
+                allWorkoutsGroup.enter()
                 self.fetchSamples(for: workout) { workoutDetailDict in
-                    // This completion block is called when samples for *one* workout are fetched
                     if let workoutDetailDict = workoutDetailDict {
-                        // Simple append might be okay if notify queue is serial, but safer with explicit sync
-                        // For simplicity now, assuming sequential processing or low contention risk.
-                        // If issues arise, implement proper locking or concurrent queue with barrier.
-                        finalResults.append(workoutDetailDict)
+                        resultsQueue.async(flags: .barrier) {
+                            finalResults.append(workoutDetailDict)
+                            allWorkoutsGroup.leave()
+                        }
                     } else {
-                        
-                         // Optionally append a partial result or skip this workout
+                         print("Warning: Failed to fetch details for workout UUID: \(workout.uuid.uuidString)")
+                         allWorkoutsGroup.leave()
                     }
-                    allWorkoutsGroup.leave() // Leave group for this workout
                 }
             }
 
-            // 6. Wait for all workouts to be processed and send final result
-            allWorkoutsGroup.notify(queue: .main) { // Use main queue for final callback
+            // 6. Wait for all workouts and send final result
+            allWorkoutsGroup.notify(queue: .main) {
                 print("Info: Finished processing all workouts (\(finalResults.count)). Serializing and sending result.")
-                do {
-                    let jsonData = try JSONSerialization.data(withJSONObject: finalResults, options: [])
-                    if let jsonString = String(data: jsonData, encoding: .utf8) {
-                        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: jsonString)
-                        self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
-                    } else {
-                        self.sendError(message: "Failed to encode final results to JSON string", command: command)
+                resultsQueue.sync {
+                    do {
+                        let sortedResults = finalResults.sorted { (dict1, dict2) -> Bool in
+                            guard let dateStr1 = dict1["startDate"] as? String,
+                                  let dateStr2 = dict2["startDate"] as? String,
+                                  let date1 = dateFormatter.date(from: dateStr1),
+                                  let date2 = dateFormatter.date(from: dateStr2) else { return false }
+                            return date1 > date2 // Descending
+                        }
+                        let jsonData = try JSONSerialization.data(withJSONObject: sortedResults, options: [])
+                        if let jsonString = String(data: jsonData, encoding: .utf8) {
+                            let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: jsonString)
+                            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
+                        } else {
+                            self.sendError(message: "Failed to encode final results to JSON string", command: command)
+                        }
+                    } catch {
+                        self.sendError(message: "Failed to serialize final results: \(error.localizedDescription)", command: command)
                     }
-                } catch {
-                    self.sendError(message: "Failed to serialize final results: \(error.localizedDescription)", command: command)
                 }
             }
         }
@@ -210,43 +215,72 @@ import HealthKit
     private func fetchSamples(for workout: HKWorkout, completion: @escaping ([String: Any]?) -> Void) {
         let sampleGroup = DispatchGroup()
         var activeCaloriesSum: Double? = nil
+        var basalCaloriesSum: Double? = nil
+        var distanceSum: Double? = nil // Using a representative distance type sum
         var heartRateValues: [Double]? = nil
 
         let workoutPredicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: .strictStartDate)
-        let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+
+        // Define Types and Units
+        let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+        let basalEnergyType = HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!
         let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        // Using distanceWalkingRunning as the representative type for the statistics query
+        // TODO: Ideally, query the distance type corresponding to workout.workoutActivityType
+        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
 
-        // Query Active Calories Sum
+        let energyUnit = HKUnit.kilocalorie()
+        let distanceUnit = HKUnit.meter()
+        let hrUnit = HKUnit.count().unitDivided(by: .minute())
+
+        // --- Query Active Calories Sum ---
         sampleGroup.enter()
-        let caloriesQuery = HKStatisticsQuery(quantityType: energyType,
-                                              quantitySamplePredicate: workoutPredicate,
-                                               options: .cumulativeSum) { [weak self] _, result, error in
+        let activeCaloriesQuery = HKStatisticsQuery(quantityType: activeEnergyType,
+                                                    quantitySamplePredicate: workoutPredicate,
+                                                    options: .cumulativeSum) { _, result, error in
             defer { sampleGroup.leave() }
-            if let error = error {
-                 print("Error: Error querying active calories for workout \(workout.uuid.uuidString): \(error.localizedDescription)")
-                 // Continue without active calories for this workout
-                 return
-            }
-            activeCaloriesSum = result?.sumQuantity()?.doubleValue(for: .kilocalorie())
-            print("Debug: Active calories for workout \(workout.uuid.uuidString): \(activeCaloriesSum ?? -1)")
+            if let error = error { print("Error querying active calories: \(error.localizedDescription)"); return }
+            activeCaloriesSum = result?.sumQuantity()?.doubleValue(for: energyUnit)
+            print("Debug: Active calories sum for workout \(workout.uuid.uuidString): \(activeCaloriesSum ?? -1)")
         }
-        healthStore.execute(caloriesQuery)
+        healthStore.execute(activeCaloriesQuery)
 
-        // Query Heart Rate Samples
+        // --- Query Basal Calories Sum ---
+        sampleGroup.enter()
+        let basalCaloriesQuery = HKStatisticsQuery(quantityType: basalEnergyType,
+                                                   quantitySamplePredicate: workoutPredicate,
+                                                   options: .cumulativeSum) { _, result, error in
+            defer { sampleGroup.leave() }
+            if let error = error { print("Error querying basal calories: \(error.localizedDescription)"); return }
+            basalCaloriesSum = result?.sumQuantity()?.doubleValue(for: energyUnit)
+            print("Debug: Basal calories sum for workout \(workout.uuid.uuidString): \(basalCaloriesSum ?? -1)")
+        }
+        healthStore.execute(basalCaloriesQuery)
+
+        // --- Query Distance Sum ---
+        sampleGroup.enter()
+        let distanceQuery = HKStatisticsQuery(quantityType: distanceType,
+                                              quantitySamplePredicate: workoutPredicate,
+                                              options: .cumulativeSum) { _, result, error in
+            defer { sampleGroup.leave() }
+            if let error = error { print("Error querying distance (\(distanceType.identifier)): \(error.localizedDescription)"); return }
+            distanceSum = result?.sumQuantity()?.doubleValue(for: distanceUnit)
+            print("Debug: Distance sum (\(distanceType.identifier)) for workout \(workout.uuid.uuidString): \(distanceSum ?? -1)")
+        }
+        healthStore.execute(distanceQuery)
+
+
+        // --- Query Heart Rate Samples ---
         sampleGroup.enter()
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
         let hrQuery = HKSampleQuery(sampleType: heartRateType,
                                     predicate: workoutPredicate,
-                                     limit: HKObjectQueryNoLimit,
-                                     sortDescriptors: [sortDescriptor]) { [weak self] _, samples, error in
+                                    limit: HKObjectQueryNoLimit,
+                                    sortDescriptors: [sortDescriptor]) { _, samples, error in
             defer { sampleGroup.leave() }
-            if let error = error {
-                print("Error: Error querying heart rates for workout \(workout.uuid.uuidString): \(error.localizedDescription)")
-                // Continue without heart rates for this workout
-                return
-            }
+            if let error = error { print("Error querying heart rates: \(error.localizedDescription)"); return }
             if let hrSamples = samples as? [HKQuantitySample] {
-                heartRateValues = hrSamples.map { $0.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) }
+                heartRateValues = hrSamples.map { $0.quantity.doubleValue(for: hrUnit) }
                  print("Debug: Found \(heartRateValues?.count ?? 0) heart rate samples for workout \(workout.uuid.uuidString)")
             } else {
                  heartRateValues = []
@@ -255,38 +289,41 @@ import HealthKit
         }
         healthStore.execute(hrQuery)
 
-        // Notify when both sample queries are done
-        sampleGroup.notify(queue: .global()) { // Process formatting on a background thread
+        // --- Notify when all sample queries are done ---
+        sampleGroup.notify(queue: .global()) {
              print("Debug: Sample queries finished for workout \(workout.uuid.uuidString). Formatting output.")
              let dateFormatter = ISO8601DateFormatter()
              dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
              let workoutStartDateStr = dateFormatter.string(from: workout.startDate)
              let workoutEndDateStr = dateFormatter.string(from: workout.endDate)
 
+             // --- Construct Samples Array ---
+             var samplesArray = [[String: Any]]()
              let activeCaloriesSample: [String: Any] = [
-                 "startDate": workoutStartDateStr,
-                 "endDate": workoutEndDateStr,
-                 "block": 1,
-                 "values": [activeCaloriesSum ?? 0.0], // Use 0.0 if query failed or no data
-                 "additionalData": "ACTIVE_CALORIES_BURNED"
+                 "startDate": workoutStartDateStr, "endDate": workoutEndDateStr, "block": 1,
+                 "values": [activeCaloriesSum ?? 0.0], "additionalData": "ACTIVE_CALORIES_BURNED"
              ]
-
+             samplesArray.append(activeCaloriesSample)
              let heartRateSample: [String: Any] = [
-                 "startDate": workoutStartDateStr,
-                 "endDate": workoutEndDateStr,
-                 "block": 1,
-                 "values": heartRateValues ?? [], // Use empty array if query failed or no data
-                 "additionalData": "HEART_RATE"
+                 "startDate": workoutStartDateStr, "endDate": workoutEndDateStr, "block": 1,
+                 "values": heartRateValues ?? [], "additionalData": "HEART_RATE"
              ]
+             samplesArray.append(heartRateSample)
+
+             // --- Construct Main Workout Dictionary ---
+             // Calculate total energy by summing active and basal (if available)
+             let totalCalculatedEnergy = (activeCaloriesSum ?? 0.0) + (basalCaloriesSum ?? 0.0)
+             // Use calculated distance sum
+             let totalCalculatedDistance = distanceSum ?? 0.0
 
              let workoutDict: [String: Any] = [
                  "startDate": workoutStartDateStr,
                  "endDate": workoutEndDateStr,
                  "duration": workout.duration,
-                 "activity": workout.workoutActivityType.name, // Use the extension method
-                 "totalDistance": workout.totalDistance?.doubleValue(for: .meter()) ?? 0.0,
-                 "totalEnergyBurned": workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0.0,
-                 "samples": [activeCaloriesSample, heartRateSample]
+                 "activity": workout.workoutActivityType.name,
+                 "totalDistance": totalCalculatedDistance, // Use calculated distance
+                 "totalEnergyBurned": totalCalculatedEnergy, // Use calculated total energy
+                 "samples": samplesArray
              ]
              completion(workoutDict)
         }
@@ -295,7 +332,6 @@ import HealthKit
 
     // MARK: - Helper Functions
 
-    // Helper function to send errors back to Cordova
     private func sendError(message: String, command: CDVInvokedUrlCommand) {
         print("Error: Plugin Error: \(message)")
         let pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: message)
@@ -310,7 +346,6 @@ import HealthKit
 extension HKWorkoutActivityType {
     /// A human-readable name for the workout activity type.
     var name: String {
-        // Using a dictionary for slightly cleaner mapping
         let mapping: [HKWorkoutActivityType: String] = [
             .americanFootball: "American Football", .archery: "Archery", .australianFootball: "Australian Football",
             .badminton: "Badminton", .baseball: "Baseball", .basketball: "Basketball", .bowling: "Bowling",
@@ -333,15 +368,8 @@ extension HKWorkoutActivityType {
             .stairs: "Stairs", .stepTraining: "Step Training", .wheelchairWalkPace: "Wheelchair Walk Pace",
             .wheelchairRunPace: "Wheelchair Run Pace", .taiChi: "Tai Chi", .mixedCardio: "Mixed Cardio",
             .handCycling: "Hand Cycling",
-            // Note: Some types like .other might need specific handling if you want finer granularity than the default name
             .other: "Other"
         ]
-
-        // Add specific checks for newer types if necessary, although mapping should handle them
-        // Example for underwaterDiving if it needed special naming and was iOS 16+
-        // if #available(iOS 16.0, *), self == .underwaterDiving { return "Underwater Diving" }
-
-        // Fallback for unknown types
         return mapping[self] ?? "Unknown Activity (\(self.rawValue))"
     }
 }
