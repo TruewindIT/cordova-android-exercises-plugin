@@ -33,7 +33,7 @@
     *   Check for runtime errors or unexpected behavior, especially related to potential retain cycles or race conditions.
 2.  **iOS Error Handling:** Review and improve error handling in Swift code, especially around query failures if permissions are denied.
 3.  **iOS Distance Logic:** Potentially refine the dynamic distance type selection in `getDistanceType` helper for more workout types if needed.
-4.  **README Documentation:** Create/update comprehensive usage instructions for both platforms, including provisioning profile requirements.
+4.  **README Documentation:** Create/update comprehensive usage instructions for both platforms, including provisioning profile requirements. **COMPLETED**
 5.  **(Paused) Android Build Errors:** Resolve the persistent `compileSdkVersion` build error.
 6.  **(Paused) Android Testing:** End-to-end testing of Android implementation.
 7.  **(Paused) Android Error Handling:** Review and improve error handling in Kotlin code.

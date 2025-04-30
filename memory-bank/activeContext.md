@@ -32,7 +32,7 @@
 2.  **Verify Provisioning Profile (User):** User to confirm the provisioning profile includes the HealthKit capability.
 3.  **Refine iOS Implementation:** Based on testing, fix bugs, improve error handling, and potentially refine distance type querying or thread safety.
 4.  **Update Memory Bank:** Update `progress.md`.
-5.  **Documentation:** Update `README.md`.
+5.  **Documentation:** Update `README.md`. **COMPLETED**
 6.  **(Paused)** Revisit Android build issues.
 
 **Active Decisions & Considerations:**
