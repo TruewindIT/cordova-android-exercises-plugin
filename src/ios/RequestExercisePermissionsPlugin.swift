@@ -69,9 +69,8 @@ import HealthKit
                     pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: "Authorization denied or failed")
                 }
             }
-            DispatchQueue.main.async {
                 self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
-            }
+            
         }
     }
 
@@ -181,13 +180,16 @@ import HealthKit
                     }
                 }
             }
-
+            let callbackId = command.callbackId
+            let pluginName = "RequestExercisePermissionsPlugin"
             // Wait for all workouts and send final result
             allWorkoutsGroup.notify(queue: .main) {
                 print("Info: Finished processing all workouts (\(finalResults.count)). Serializing and sending result.")
                 // Access finalResults safely after all appends are done by ensuring notify waits
                 resultsQueue.async { // Ensure sorting happens after all appends
                     do {
+                        let dateFormatter = ISO8601DateFormatter()
+                        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                         let sortedResults = finalResults.sorted { (dict1, dict2) -> Bool in
                             guard let dateStr1 = dict1["startDate"] as? String,
                                   let dateStr2 = dict2["startDate"] as? String,
@@ -198,16 +200,14 @@ import HealthKit
 
                         let jsonData = try JSONSerialization.data(withJSONObject: sortedResults, options: [])
                         if let jsonString = String(data: jsonData, encoding: .utf8) {
-                            // Switch back to main thread for Cordova callback
-                            DispatchQueue.main.async {
                                 let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: jsonString)
-                                self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
-                            }
+                                self.commandDelegate.send(pluginResult, callbackId: callbackId)
+                            
                         } else {
-                            self.sendError(message: "Failed to encode final results to JSON string", command: command)
+                            self.sendError(message: "Failed to encode final results to JSON string", command: self.commandDelegate.getCommandInstance(pluginName) as! CDVInvokedUrlCommand)
                         }
                     } catch {
-                        self.sendError(message: "Failed to serialize final results: \(error.localizedDescription)", command: command)
+                        self.sendError(message: "Failed to serialize final results: \(error.localizedDescription)", command: self.commandDelegate.getCommandInstance(pluginName) as! CDVInvokedUrlCommand)
                     }
                 } // End resultsQueue.async
             } // End allWorkoutsGroup.notify
@@ -383,9 +383,8 @@ import HealthKit
     private func sendError(message: String, command: CDVInvokedUrlCommand) {
         print("Error: Plugin Error: \(message)")
         let pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: message)
-        DispatchQueue.main.async {
-            self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
-        }
+        let callbackId = command.callbackId
+        self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
     }
 }
 
@@ -418,6 +417,6 @@ extension HKWorkoutActivityType {
             .handCycling: "Hand Cycling",
             .other: "Other"
         ]
-        return mapping[self] ?? "Unknown Activity (\(self.rawValue))"
+        return mapping[self] ?? "Other"
     }
 }
