@@ -38,15 +38,15 @@ import HealthKit
             HKObjectType.quantityType(forIdentifier: .distanceWheelchair)!,
         ]
 
-        // Add distance types available in newer OS versions conditionally
-        if #available(iOS 18.0, *) {
-            // Note: Ensure this identifier truly requires iOS 18+ based on latest Apple docs if issues arise
-            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceRowing)!)
-            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distancePaddleSports)!)
-            readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceSkatingSports)!)
+        // // Add distance types available in newer OS versions conditionally
+        // if #available(iOS 18.0, *) {
+        //     // Note: Ensure this identifier truly requires iOS 18+ based on latest Apple docs if issues arise
+        //     readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceRowing)!)
+        //     readTypes.insert(HKObjectType.quantityType(forIdentifier: .distancePaddleSports)!)
+        //     readTypes.insert(HKObjectType.quantityType(forIdentifier: .distanceSkatingSports)!)
             
-            if let type = HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing) { readTypes.insert(type) }
-        }
+        //     if let type = HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing) { readTypes.insert(type) }
+        // }
         if #available(iOS 11.2, *) {
              if let type = HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports) { readTypes.insert(type) }
         }
@@ -353,22 +353,22 @@ import HealthKit
             return HKObjectType.quantityType(forIdentifier: .distanceSwimming)
         case .wheelchairRunPace, .wheelchairWalkPace: // Group wheelchair types
              return HKObjectType.quantityType(forIdentifier: .distanceWheelchair)
-        case .rowing:
-             if #available(iOS 18.0, *) { // Check availability
-             return HKObjectType.quantityType(forIdentifier: .distanceRowing)
-             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
-        case .paddleSports:
-             if #available(iOS 18.0, *) { // Check availability
-             return HKObjectType.quantityType(forIdentifier: .distancePaddleSports)
-             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
-        case .skatingSports:
-             if #available(iOS 18.0, *) { // Check availability
-             return HKObjectType.quantityType(forIdentifier: .distanceSkatingSports)
-             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
-        case .crossCountrySkiing:
-             if #available(iOS 18.0, *) { // Check availability
-                 return HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing)
-             } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        // case .rowing:
+        //      if #available(iOS 18.0, *) { // Check availability
+        //      return HKObjectType.quantityType(forIdentifier: .distanceRowing)
+        //      } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        // case .paddleSports:
+        //      if #available(iOS 18.0, *) { // Check availability
+        //      return HKObjectType.quantityType(forIdentifier: .distancePaddleSports)
+        //      } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        // case .skatingSports:
+        //      if #available(iOS 18.0, *) { // Check availability
+        //      return HKObjectType.quantityType(forIdentifier: .distanceSkatingSports)
+        //      } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
+        // case .crossCountrySkiing:
+        //      if #available(iOS 18.0, *) { // Check availability
+        //          return HKObjectType.quantityType(forIdentifier: .distanceCrossCountrySkiing)
+        //      } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
         case .downhillSkiing, .snowboarding, .snowSports: // Group snow sports
              if #available(iOS 11.2, *) { // Check availability
                  return HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)

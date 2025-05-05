@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
     id="com.axians.requestexercisepermissionsplugin"
-    version="1.1.9-prerelease"
+    version="1.1.10-prerelease"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <name>Cordova Exercises Health Plugin</name>
@@ -98,9 +98,8 @@
         </config-file>≈
 
         <framework src="HealthKit.framework" />
-
-        <source-file src="src/ios/RequestExercisePermissionsPlugin.m" />
-        <header-file src="src/ios/RequestExercisePermissionsPlugin.h" />
+        <dependency id="cordova-plugin-add-swift-support" url="https://github.com/OutSystems/cordova-plugin-add-swift-support.git#2.0.3-OS1"/>
+        <source-file src="src/ios/RequestExercisePermissionsPlugin.swift" />
         <!-- Add Bridging Header if needed later
         <header-file src="src/ios/Bridging-Header.h" type="BridgingHeader" />
         -->
