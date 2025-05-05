@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
     id="com.axians.requestexercisepermissionsplugin"
-    version="1.1.4-prerelease"
+    version="1.1.5-prerelease"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <name>Cordova Exercises Health Plugin</name>
@@ -85,21 +85,19 @@
             <feature name="RequestExercisePermissionsPlugin">
                 <param name="ios-package" value="RequestExercisePermissionsPlugin"/>
             </feature>
-        </config-file>
+			<preference name="deployment-target" value="13" />
+             <preference name="UseSwiftLanguageVersion" value="5" />
+		</config-file>
 
         <config-file target="*-Info.plist" parent="NSHealthShareUsageDescription">
             <string>This app needs access to your workout data to display your exercise history.</string>
         </config-file>
         <config-file target="*-Info.plist" parent="NSHealthUpdateUsageDescription">
             <string>This app needs access to update your workout data.</string>
-        </config-file>
-<!-- 
-        <config-file target="config.xml" parent="/*">
-            <preference name="UseSwiftLanguageVersion" value="6" />
-        </config-file> -->
+        </config-file>≈
 
         <!-- <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/> -->
-
+        <dependency id="cordova-plugin-add-swift-support" url="https://github.com/OutSystems/cordova-plugin-add-swift-support.git#2.0.3-OS1"/>
         <framework src="HealthKit.framework" />
 
         <source-file src="src/ios/RequestExercisePermissionsPlugin.swift" />
