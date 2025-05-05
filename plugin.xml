@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
     id="com.axians.requestexercisepermissionsplugin"
-    version="1.1.5-prerelease"
+    version="1.1.6-prerelease"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <name>Cordova Exercises Health Plugin</name>
@@ -86,7 +86,6 @@
                 <param name="ios-package" value="RequestExercisePermissionsPlugin"/>
             </feature>
 			<preference name="deployment-target" value="13" />
-             <preference name="UseSwiftLanguageVersion" value="5" />
 		</config-file>
 
         <config-file target="*-Info.plist" parent="NSHealthShareUsageDescription">
