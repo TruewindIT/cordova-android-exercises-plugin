@@ -37,17 +37,17 @@
                                nil];
 
     // Add distance types available in newer OS versions conditionally
-//    if (@available(iOS 18.0, *)) {
-//        // Note: Ensure this identifier truly requires iOS 18+ based on latest Apple docs if issues arise
-//        [readTypes addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceRowing]];
-//        [readTypes addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistancePaddleSports]];
-//        [readTypes addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSkatingSports]];
-//
-//        HKQuantityType *crossCountrySkiingType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCrossCountrySkiing];
-//        if (crossCountrySkiingType) {
-//            [readTypes addObject:crossCountrySkiingType];
-//        }
-//    }
+   if (@available(iOS 18.0, *)) {
+       // Note: Ensure this identifier truly requires iOS 18+ based on latest Apple docs if issues arise
+       [readTypes addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceRowing]];
+       [readTypes addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistancePaddleSports]];
+       [readTypes addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSkatingSports]];
+
+       HKQuantityType *crossCountrySkiingType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCrossCountrySkiing];
+       if (crossCountrySkiingType) {
+           [readTypes addObject:crossCountrySkiingType];
+       }
+   }
     if (@available(iOS 11.2, *)) {
          HKQuantityType *downhillSnowSportsType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceDownhillSnowSports];
          if (downhillSnowSportsType) {
@@ -251,30 +251,30 @@
         case HKWorkoutActivityTypeWheelchairRunPace:
         case HKWorkoutActivityTypeWheelchairWalkPace:
             return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWheelchair];
-//        case HKWorkoutActivityTypeRowing:
-//            if (@available(iOS 18.0, *)) {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceRowing];
-//            } else {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
-//            }
-//        case HKWorkoutActivityTypePaddleSports:
-//            if (@available(iOS 18.0, *)) {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistancePaddleSports];
-//            } else {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
-//            }
-//        case HKWorkoutActivityTypeSkatingSports:
-//            if (@available(iOS 18.0, *)) {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSkatingSports];
-//            } else {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
-//            }
-//        case HKWorkoutActivityTypeCrossCountrySkiing:
-//            if (@available(iOS 18.0, *)) {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCrossCountrySkiing];
-//            } else {
-//                return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
-//            }
+       case HKWorkoutActivityTypeRowing:
+           if (@available(iOS 18.0, *)) {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceRowing];
+           } else {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
+           }
+       case HKWorkoutActivityTypePaddleSports:
+           if (@available(iOS 18.0, *)) {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistancePaddleSports];
+           } else {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
+           }
+       case HKWorkoutActivityTypeSkatingSports:
+           if (@available(iOS 18.0, *)) {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSkatingSports];
+           } else {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
+           }
+       case HKWorkoutActivityTypeCrossCountrySkiing:
+           if (@available(iOS 18.0, *)) {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCrossCountrySkiing];
+           } else {
+               return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];
+           }
         case HKWorkoutActivityTypeDownhillSkiing:
         case HKWorkoutActivityTypeSnowboarding:
         case HKWorkoutActivityTypeSnowSports:
