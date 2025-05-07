@@ -1,6 +1,6 @@
 {
   "name": "com.axians.requestexercisepermissionsplugin",
-  "version": "1.2.0-prerelease",
+  "version": "1.2.0",
   "cordova_name": "Cordova Exercises Health Plugin",
   "description": "Plugin to extract exercise data from Android Health Connect SDK and iOS HealthKit",
   "author": "Axians",
