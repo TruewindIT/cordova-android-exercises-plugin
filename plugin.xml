@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
     id="com.axians.requestexercisepermissionsplugin"
-    version="1.2.0"
+    version="1.2.0-prerelease"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <name>Cordova Exercises Health Plugin</name>
@@ -95,7 +95,7 @@
         </config-file>
         <config-file target="*-Info.plist" parent="NSHealthUpdateUsageDescription">
             <string>This app needs access to update your workout data.</string>
-        </config-file>≈
+        </config-file>
 
         <framework src="HealthKit.framework" />
 
