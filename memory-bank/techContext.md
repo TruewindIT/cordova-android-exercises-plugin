@@ -8,7 +8,7 @@
     *   **Language:** Kotlin (version inferred from `build.gradle` dependencies, likely 1.7.1+ based on coroutines version).
     *   **Build System:** Gradle.
 *   **iOS Native Development:**
-    *   **Language:** Swift (Assumed latest stable compatible with target Xcode/iOS versions).
+    *   **Language:** Objective-C.
     *   **Build System:** Xcode (managed via Cordova CLI and `plugin.xml`).
 *   **Android Health Connect SDK:** The primary API for accessing health and fitness data on Android.
     *   Version: `androidx.health.connect:connect-client:1.1.0-alpha07` (specified in `android/build.gradle`).
@@ -19,9 +19,9 @@
     *   Version: `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1`.
 *   **Serialization Libraries:**
     *   Android: **Gson** (`com.google.code.gson:gson:2.8.9`).
-    *   iOS: **Foundation.JSONSerialization**.
+    *   iOS: **NSJSONSerialization**.
 *   **Other iOS Frameworks:**
-    *   **Foundation:** Used for `ISO8601DateFormatter`, `DispatchQueue`, `JSONSerialization`.
+    *   **Foundation:** Used for `ISO8601DateFormatter`, `dispatch_group_t`, `NSJSONSerialization`.
 
         // Add specific checks for newer types if necessary, although mapping should handle them
         // Example for underwaterDiving if it needed special naming and was iOS 16+
@@ -50,7 +50,7 @@
     *   iOS: Requires `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` in `Info.plist` (via `plugin.xml`) and user authorization via `requestAuthorization`. Requires `com.apple.developer.healthkit` entitlement, configured directly in `plugin.xml`.
 *   **Android Build Environment:** Potential build errors related to `compileSdkVersion`, Kotlin versions, AndroidX compatibility, or Gradle configuration. The `android/build.gradle` is likely incomplete.
 *   **Apple Developer Account:** May be required for testing on physical iOS devices. Provisioning profile must include HealthKit capability.
-*   **Implementation Risks (iOS):** Current Swift code omits `[weak self]` in closures, risking retain cycles. Result aggregation relies on implicit `DispatchGroup` queue behavior, risking race conditions under load.
+*   **Implementation Risks (iOS):** Potential retain cycle risk with Objective-C blocks if `__weak` or `__unsafe_unretained` is not used. Result aggregation relies on implicit `dispatch_group_notify` queue behavior, risking race conditions under load.
 
 **Tool Usage Patterns:**
 
@@ -63,9 +63,9 @@
     *   `HKHealthStore`: Checking availability, requesting authorization, executing queries.
     *   `HKSampleQuery`: Fetching workout and heart rate sample data.
     *   `HKStatisticsQuery`: Calculating sum for active energy, basal energy, and distance.
-    *   `JSONSerialization`: JSON serialization (Swift).
-    *   `DispatchQueue.main.async`: Ensuring Cordova callbacks happen on the main thread (Swift).
-    *   `DispatchGroup`: Managing multiple asynchronous HealthKit queries for each workout.
-    *   `#available`: Swift check for OS-specific API availability.
-    *   (Note: Closures currently omit `[weak self]`).
+    *   `NSJSONSerialization`: JSON serialization (Objective-C).
+    *   `dispatch_async(dispatch_get_main_queue(), ^{...})`: Ensuring Cordova callbacks happen on the main thread.
+    *   `dispatch_group_t`: Managing multiple asynchronous HealthKit queries for each workout.
+    *   `@available`: Objective-C check for OS-specific API availability.
+    *   (Note: Potential retain cycle risk with blocks if `__weak` or `__unsafe_unretained` is not used).
     *   (Note: Result aggregation relies on implicit thread safety).
