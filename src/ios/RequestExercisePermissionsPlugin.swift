@@ -374,9 +374,7 @@ import HealthKit
                  return HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)
              } else { return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) }
         default:
-            // Return nil if no specific distance type is typically associated
-            print("Debug: No distance type mapping for activity: \(activityType.name)")
-            return nil
+            return HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)
         }
     }
 

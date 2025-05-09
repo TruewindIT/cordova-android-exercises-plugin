@@ -285,8 +285,9 @@
             }
         default:
             // Return nil if no specific distance type is typically associated
-            NSLog(@"Debug: No distance type mapping for activity: %lu", (unsigned long)activityType);
-            return nil;
+            // NSLog(@"Debug: No distance type mapping for activity: %lu", (unsigned long)activityType);
+            // return 
+            return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];;
     }
 }
 
