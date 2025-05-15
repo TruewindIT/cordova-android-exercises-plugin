@@ -25,7 +25,7 @@
     *   Run the app and test `requestPermissions` and `getExerciseData`.
     *   Verify the output JSON format matches the requirement.
     *   Confirm that the `HKSampleQuery` initializer error is resolved.
-    *   Observe behavior related to the modified authorization checks and distance query logic.
+    *   Observe behavior related to the modified authorization checks.
     *   Check for runtime errors or unexpected behavior, especially related to potential retain cycles or race conditions with Objective-C blocks.
 2.  **iOS Error Handling:** Review and improve error handling in Objective-C code, especially around query failures if permissions are denied.
 3.  **iOS Distance Logic:** Potentially refine the dynamic distance type selection in `getDistanceTypeForActivityType:` helper for more workout types if needed.
@@ -35,7 +35,7 @@
 7.  **(Paused) Android Data Completeness:** Verify data points fetched from Health Connect.
 
 **Current Status:**
-*   **iOS:** Implementation is now in Objective-C, includes the core functionality and a bug fix, and requires testing and verification.
+*   **iOS:** Implementation is now in Objective-C, includes the core functionality, a bug fix for the HKSampleQuery initializer, and a fallback for distance extraction on earlier iOS versions. Tagged as version 1.2.2.
 *   **Android:** Implementation exists but is blocked by build configuration issues (currently paused).
 
 **Known Issues:**
@@ -56,3 +56,4 @@
 *   Implemented dynamic distance type querying based on workout activity.
 *   Incorporated user changes (distance query condition, removal of `[weak self]`, removal of explicit thread safety).
 *   Fixed `HKSampleQuery` initializer bug in Objective-C.
+*   Implemented distance extraction fallback for earlier iOS versions using HKStatisticsQuery.

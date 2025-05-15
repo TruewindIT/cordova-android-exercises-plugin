@@ -1,6 +1,6 @@
 # Active Context: Cordova Health Exercises Plugin (2025-05-06)
 
-**Current Focus:** Testing and verifying the Objective-C implementation of the iOS HealthKit plugin after converting from Swift and fixing a query initializer bug. Android build issues remain paused.
+**Current Focus:** Completed implementation of distance extraction fallback for earlier iOS versions and created tag `1.2.2`. Committing changes and pushing tag. Android build issues remain paused.
 
 **Recent Changes:**
 
@@ -11,19 +11,23 @@
     *   Updated `plugin.xml` for iOS to reference `RequestExercisePermissionsPlugin.h` and `RequestExercisePermissionsPlugin.m` and removed the dependency on `cordova-plugin-add-swift-support`.
 *   **iOS Bug Fixing:**
     *   Fixed an error with `HKSampleQuery` initialization in the Objective-C code by changing `completionHandler:` to `resultsHandler:`.
+*   **iOS Distance Fallback:**
+    *   Implemented a fallback for distance extraction on earlier iOS versions using HKStatisticsQuery.
+*   **Tagged Release:**
+    *   Created and pushed tag `1.2.2` to mark the bug fix release.
 *   **Android:**
     *   Remains paused. Build configuration issues unresolved.
 
 **Next Steps:**
 
-1.  **Test iOS Objective-C Implementation:** Build the iOS platform (`cordova build ios`) and verify:
-        *   The HealthKit capability is correctly applied via `plugin.xml`.
+1.  **iOS Testing:** Thoroughly test the Objective-C iOS implementation (including the distance fallback) on different iOS versions.
+        *   Verify the HealthKit capability is correctly applied via `plugin.xml`.
         *   Run the app and test `requestPermissions` and `getExerciseData`.
         *   Verify the output JSON format matches the requirement.
         *   Confirm that the `HKSampleQuery` initializer error is resolved.
-        *   Observe behavior related to the modified authorization checks and distance query logic.
+        *   Observe behavior related to the modified authorization checks and distance query logic on different iOS versions.
         *   Check for potential issues related to retain cycles or race conditions with Objective-C blocks.
-2.  **Verify Provisioning Profile (User):** User to confirm the provisioning profile includes the HealthKit capability.
+2.  **Verify Provisioning Profile (User):** User to confirm that the provisioning profile includes the HealthKit capability.
 3.  **Refine iOS Implementation:** Based on testing, fix any remaining bugs, improve error handling, and potentially refine distance type querying or thread safety.
 4.  **Update Memory Bank:** Update `progress.md`.
 5.  **(Paused)** Revisit Android build issues.
