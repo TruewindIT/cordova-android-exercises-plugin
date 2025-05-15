@@ -1,3 +1,7 @@
 android/.gradle
 articles
 docs
+*/bin/
+*/obj/
+.clinerules
+*/memory-bank/*

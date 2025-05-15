@@ -286,7 +286,7 @@
         default:
             // Return nil if no specific distance type is typically associated
             // NSLog(@"Debug: No distance type mapping for activity: %lu", (unsigned long)activityType);
-            // return 
+            // return
             return [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning];;
     }
 }
@@ -341,33 +341,63 @@
     }];
     [self.healthStore executeQuery:basalCaloriesQuery];
 
-    // --- Query Distance Sum (Dynamically Typed) ---
+    // --- Get Distance from Workout Statistics ---
+    // Access the total distance directly from the HKWorkout object's statistics.
+    // This is the preferred method as it represents the distance attributed to the workout by the recording app.
     HKQuantityType *distanceType = [self getDistanceTypeForActivityType:workout.workoutActivityType];
     if (distanceType) {
-        HKAuthorizationStatus distanceStatus = [self.healthStore authorizationStatusForType:distanceType];
-        NSLog(@"Debug: Auth status for %@: %ld", distanceType.identifier, (long)distanceStatus);
-        // Proceed if permission is granted OR denied (per user request)
-        if (distanceStatus == HKAuthorizationStatusSharingAuthorized || distanceStatus == HKAuthorizationStatusSharingDenied) {
-            dispatch_group_enter(sampleGroup);
-            HKStatisticsQuery *distanceQuery = [[HKStatisticsQuery alloc] initWithQuantityType:distanceType
-                                                                       quantitySamplePredicate:workoutPredicate
-                                                                                       options:HKStatisticsOptionCumulativeSum
-                                                                             completionHandler:^(HKStatisticsQuery * _Nonnull query, HKStatistics * _Nullable result, NSError * _Nullable error) {
-                if (error) {
-                    NSLog(@"Error querying distance (%@): %@", distanceType.identifier, error.localizedDescription);
-                } else {
-                    distanceSum = @([result.sumQuantity doubleValueForUnit:distanceUnit]);
-                    NSLog(@"Debug: Distance sum (%@) for workout %@: %@", distanceType.identifier, workout.UUID.UUIDString, distanceSum ?: @(-1));
-                }
-                dispatch_group_leave(sampleGroup);
-            }];
-            [self.healthStore executeQuery:distanceQuery];
+        if (@available(iOS 16.0, *)) {
+            HKStatistics *distanceStatistics = [workout statisticsForType:distanceType];
+//            HKStatistics *calories = [workout statisticsForType:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierActiveEnergyBurned]];
+//            activeCaloriesSum = @([calories.sumQuantity doubleValueForUnit:energyUnit]);
+            if (distanceStatistics) {
+                distanceSum = @([distanceStatistics.sumQuantity doubleValueForUnit:distanceUnit]);
+                NSLog(@"Debug: Distance sum (from workout statistics) for workout %@: %@", workout.UUID.UUIDString, distanceSum ?: @(-1));
+            } else {
+                NSLog(@"Debug: No distance statistics found for type %@ in workout %@", distanceType.identifier, workout.UUID.UUIDString);
+                distanceSum = @(0.0); // Default to 0 if no statistics found
+            }
         } else {
-            NSLog(@"Warning: Distance type %@ has status .notDetermined, skipping query.", distanceType.identifier);
+            // Fallback on earlier versions
+            // --- Query Distance Sum (Dynamically Typed - Fallback) ---
+            // This uses HKStatisticsQuery for compatibility with iOS versions prior to 16.0.
+            // It queries all distance samples within the workout's time range.
+            if (distanceType) {
+                HKAuthorizationStatus distanceStatus = [self.healthStore authorizationStatusForType:distanceType];
+                NSLog(@"Debug: Auth status for %@: %ld", distanceType.identifier, (long)distanceStatus);
+                // Proceed if permission is granted OR denied (per user request)
+                if (distanceStatus == HKAuthorizationStatusSharingAuthorized || distanceStatus == HKAuthorizationStatusSharingDenied) {
+                    dispatch_group_enter(sampleGroup);
+                    HKStatisticsQuery *distanceQuery = [[HKStatisticsQuery alloc] initWithQuantityType:distanceType
+                                                                               quantitySamplePredicate:workoutPredicate
+                                                                                               options:HKStatisticsOptionCumulativeSum
+                                                                                     completionHandler:^(HKStatisticsQuery * _Nonnull query, HKStatistics * _Nullable result, NSError * _Nullable error) {
+                        if (error) {
+                            NSLog(@"Error querying distance (%@): %@", distanceType.identifier, error.localizedDescription);
+                        } else {
+                            distanceSum = @([result.sumQuantity doubleValueForUnit:distanceUnit]);
+                            NSLog(@"Debug: Distance sum (%@) for workout %@: %@", distanceType.identifier, workout.UUID.UUIDString, distanceSum ?: @(-1));
+                        }
+                        dispatch_group_leave(sampleGroup);
+                    }];
+                    [self.healthStore executeQuery:distanceQuery];
+                } else {
+                    NSLog(@"Warning: Distance type %@ has status .notDetermined, skipping query.", distanceType.identifier);
+                    // Still need to leave the group even if skipping the query
+                    dispatch_group_leave(sampleGroup);
+                }
+            } else {
+                NSLog(@"Debug: No specific distance type associated with activity type %lu, skipping distance query and defaulting to 0.", (unsigned long)workout.workoutActivityType);
+                distanceSum = @(0.0); // Default to 0 if no distance type mapping
+                // Still need to leave the group even if skipping the query
+                dispatch_group_leave(sampleGroup);
+            }
         }
     } else {
-        NSLog(@"Debug: No specific distance type associated with activity type %lu, skipping distance query.", (unsigned long)workout.workoutActivityType);
+        NSLog(@"Debug: No specific distance type associated with activity type %lu, distance sum defaulted to 0.", (unsigned long)workout.workoutActivityType);
+        distanceSum = @(0.0); // Default to 0 if no distance type mapping
     }
+    // No dispatch_group_enter/leave needed for this synchronous access
 
     // --- Query Heart Rate Samples ---
     dispatch_group_enter(sampleGroup);
