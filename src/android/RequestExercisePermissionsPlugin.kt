@@ -322,7 +322,8 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                 HealthPermission.getReadPermission(ExerciseSessionRecord::class),
                 HealthPermission.getReadPermission(DistanceRecord::class),
                 HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-                HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+                HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+                HealthPermission.getReadPermission(SpeedRecord::class)
             )
             return permissions
         }

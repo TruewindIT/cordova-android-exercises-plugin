@@ -34,6 +34,8 @@
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCycling],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSwimming],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWheelchair],
+                               [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierWalkingSpeed],
+                               [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount],
                                nil];
 
     // Add distance types available in newer OS versions conditionally
