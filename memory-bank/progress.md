@@ -35,8 +35,9 @@
 7.  **(Paused) Android Data Completeness:** Verify data points fetched from Health Connect.
 
 **Current Status:**
-*   **iOS:** Implementation is now in Objective-C, includes the core functionality, a bug fix for the HKSampleQuery initializer, and a fallback for distance extraction on earlier iOS versions. Tagged as version 1.2.2.
-*   **Android:** Implementation exists but is blocked by build configuration issues (currently paused).
+*   **iOS:** Implementation is now in Objective-C, includes the core functionality, a bug fix for the HKSampleQuery initializer, and a fallback for distance extraction on earlier iOS versions. Added permissions for walking speed and step count.
+*   **Android:** Implementation exists and now includes permission for speed. Build configuration issues remain paused.
+*   **Tagged Release:** Created and pushed tag `1.2.2-alt` to include new permissions.
 
 **Known Issues:**
 

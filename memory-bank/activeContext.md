@@ -1,6 +1,6 @@
 # Active Context: Cordova Health Exercises Plugin (2025-05-06)
 
-**Current Focus:** Completed implementation of distance extraction fallback for earlier iOS versions and created tag `1.2.2`. Committing changes and pushing tag. Android build issues remain paused.
+**Current Focus:** Added permissions for walking speed and step count on iOS and speed for Android. Committing changes and pushing tag `1.2.2-alt`. Android build issues remain paused.
 
 **Recent Changes:**
 
@@ -14,7 +14,7 @@
 *   **iOS Distance Fallback:**
     *   Implemented a fallback for distance extraction on earlier iOS versions using HKStatisticsQuery.
 *   **Tagged Release:**
-    *   Created and pushed tag `1.2.2` to mark the bug fix release.
+    *   Created and pushed tag `1.2.2-alt` to include new permissions.
 *   **Android:**
     *   Remains paused. Build configuration issues unresolved.
 

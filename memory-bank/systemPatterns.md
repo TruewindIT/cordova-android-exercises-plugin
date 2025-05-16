@@ -10,7 +10,7 @@
     *   `RequestExercisePermissionsPlugin.h` and `RequestExercisePermissionsPlugin.m`: Extends `CDVPlugin`. Handles actions dispatched from JavaScript. Interacts with the HealthKit framework using Objective-C.
 *   **Configuration (`plugin.xml`):** Defines plugin ID, version, JS module. Contains platform-specific sections (`<platform name="android">`, `<platform name="ios">`):
     *   **Android:** Specifies Kotlin source files, feature mapping, Android permissions, `AndroidManifest.xml` entries (permissions activity/alias), and includes `android/build.gradle` via `<framework>`.
-    *   **iOS:** Specifies Swift source file, feature mapping, links `HealthKit.framework`, adds `Info.plist` usage descriptions, includes `cordova-plugin-add-swift-support` dependency, and configures HealthKit entitlements directly using `<config-file target="*/Entitlements-*.plist">`.
+    *   **iOS:** Specifies Swift source file, feature mapping, links `HealthKit.framework`, adds `Info.plist` usage descriptions, and configures HealthKit entitlements directly using `<config-file target="*/Entitlements-*.plist">`.
 *   **Build Configuration:**
     *   **Android (`android/build.gradle`):** Specifies dependencies (Health Connect client, Kotlin coroutines, Gson), configures source sets. (Note: Currently incomplete for a library plugin).
     *   **iOS:** Managed via `plugin.xml` framework linking, dependencies, and direct entitlement configuration.
@@ -25,7 +25,7 @@
     *   iOS: HealthKit's asynchronous query completion handlers (`HKSampleQuery`, `requestAuthorization`). Main thread dispatch (`dispatch_async(dispatch_get_main_queue(), ^{...})`) used for Cordova callbacks. Uses Objective-C blocks and `dispatch_group_t` for managing concurrent queries. (Note: Potential retain cycle risk with blocks if `__weak` or `__unsafe_unretained` is not used). Result aggregation relies on implicit `dispatch_group_notify` queue behavior for thread safety.
 *   **Permissions Handling:**
     *   Android: Dedicated Activity (`HealthActivityPermissions`) launched from the plugin.
-    *   iOS: Uses `HKHealthStore.requestAuthorization`. Pre-query check in `getExerciseData` verifies core statuses are not `.notDetermined`. Distance sub-query proceeds if distance status is `.sharingAuthorized` or `.sharingDenied`. HealthKit entitlement configured directly in `plugin.xml`.
+    *   iOS: Uses `HKHealthStore.requestAuthorization`. Pre-query check in `getExerciseData` verifies core statuses are not `.notDetermined`. Distance sub-query proceeds if distance status is `.sharingAuthorized` or `.sharingDenied`. HealthKit entitlement configured directly in `plugin.xml`. Also requests permissions for `HKQuantityTypeIdentifierWalkingSpeed` and `HKQuantityTypeIdentifierStepCount`.
 *   **Data Serialization:**
     *   Android: Gson library.
     *   iOS: `NSJSONSerialization`.
@@ -42,12 +42,12 @@ graph TD
 
     subgraph Android
         C -- Android --> D[RequestExercisePermissionsPlugin.kt];
-        D -- checks/requests --> E(Health Connect Permissions);
+        D -- checks/requests --> E(Health Connect Permissions + SpeedRecord);
         D -- launches --> F(HealthActivityPermissions.kt);
         F -- requests --> E;
-        D -- reads --> G(Health Connect SDK);
+        D -- reads --> G(Health Connect SDK + SpeedRecord);
         G -- returns data --> D;
-        D -- serializes w/ Gson --> H[JSON Data];
+        D -- serializes w/ Gson --> H[JSON Data + SpeedRecord];
         D -- PluginResult --> B;
     end
 
