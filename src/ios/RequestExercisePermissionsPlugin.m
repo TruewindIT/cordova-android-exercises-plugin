@@ -33,7 +33,6 @@
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCycling],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSwimming],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWheelchair],
-                               [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierWalkingSpeed],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount],
                                nil];
 
