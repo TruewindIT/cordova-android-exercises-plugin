@@ -6,7 +6,6 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
-import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
@@ -104,10 +103,6 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
             }.await()
             decimalCaloriesList.add(activeCalories)
 
-            val heartRates = async {
-                readHeartRateValues(exerciseRecord.startTime, exerciseRecord.endTime)
-            }.await()
-
             samples.add(
                 mapOf(
                     "startDate" to exerciseRecord.startTime.toString(),
@@ -115,15 +110,6 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                     "block" to 1,
                     "values" to decimalCaloriesList,
                     "additionalData" to "ACTIVE_CALORIES_BURNED"
-                    )
-                )
-            samples.add(
-                    mapOf(
-                        "startDate" to exerciseRecord.startTime.toString(),
-                        "endDate" to exerciseRecord.endTime.toString(),
-                        "block" to 1,
-                        "values" to heartRates,
-                        "additionalData" to "HEART_RATE"
                     )
                 )
 
@@ -191,28 +177,6 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
             calories = 0.0
         }
         return calories
-    }
-
-    private suspend fun readHeartRateValues(startTime: Instant, endTime: Instant): List<Double> {
-        var heartRatesList = mutableListOf<Double>()
-        try {
-            val healthConnectClient = HealthConnectClient.getOrCreate(cordova.context)
-
-            val timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
-            val request = ReadRecordsRequest(
-                recordType = HeartRateRecord::class,
-                timeRangeFilter = timeRangeFilter
-            )
-            val response = healthConnectClient.readRecords(request)
-            response.records.forEach { heartRateRecord ->
-                heartRateRecord.samples.forEach { bpm ->
-                    heartRatesList.add(bpm.beatsPerMinute.toDouble())
-                }
-            }
-        } catch (e: Exception) {
-            println(e.message)
-        }
-        return heartRatesList
     }
 
     private suspend fun readActiveCaloriesBurned(startTime: Instant, endTime: Instant): Double {
@@ -318,7 +282,6 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
     companion object {
         fun getPermissionsSet(): Set<String> {
             val permissions = setOf(
-                HealthPermission.getReadPermission(HeartRateRecord::class),
                 HealthPermission.getReadPermission(StepsRecord::class),
                 HealthPermission.getReadPermission(ExerciseSessionRecord::class),
                 HealthPermission.getReadPermission(DistanceRecord::class),

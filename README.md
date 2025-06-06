@@ -13,13 +13,12 @@ cordova plugin add cordova-android-exercises-plugin
 ### Features
 
 *   Requests exercise-related permissions on Android and iOS devices.
-*   Retrieves workout data with associated metrics like distance, calories, and heart rate.
+*   Retrieves workout data with associated metrics like distance and calories.
 
 ### Available Functions
 
 *   `requestPermissions(successCallback, errorCallback)`: Requests the necessary permissions for accessing exercise data.
     *   **Android Permissions:**
-        *   `android.permission.READ_HEART_RATE`
         *   `android.permission.READ_STEPS`
         *   `android.permission.READ_EXERCISE`
         *   `android.permission.READ_EXERCISEROUTE`
@@ -30,7 +29,6 @@ cordova plugin add cordova-android-exercises-plugin
         *   Workouts
         *   Active Energy Burned
         *   Basal Energy Burned
-        *   Heart Rate
         *   Distance Walking/Running
         *   Distance Cycling
         *   Distance Swimming
@@ -54,7 +52,6 @@ The following dependencies are used in the `android/build.gradle` file:
 The plugin relies on the following iOS frameworks and dependencies:
 
 *   `HealthKit.framework`: Provides access to the HealthKit framework for accessing health data.
-*   `cordova-plugin-add-swift-support`: Adds Swift support to the Cordova project.
 
 ### Example
 
@@ -111,7 +108,6 @@ healthPlugin.requestPermissions(
 ### Known Issues
 
 *   **iOS Authorization Status:** In some cases, the `authorizationStatus(for:)` method may return `.sharingDenied` even after the user has granted permissions in the Settings app. This issue may be related to the provisioning profile or HealthKit entitlements.
-*   **Potential iOS Risks:** The current Swift code omits `[weak self]` in closures, which may cause retain cycles. Additionally, the removal of explicit thread safety may cause race conditions during result aggregation.
 
 # Author
 Developed by Henrique Silva at Axians DC Low-Code
