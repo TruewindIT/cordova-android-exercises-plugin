@@ -44,7 +44,7 @@
             <!-- <uses-permission android:name="android.permission.health.WRITE_EXERCISEROUTE"/> -->
             <uses-permission android:name="android.permission.health.READ_STEPS"/>
             <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
-            <uses-permission android:name="android.permission.health.READ_EXERCISEROUTE"/>
+            <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE"/>
             <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
             <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
             <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
@@ -76,7 +76,7 @@
               </intent-filter>
           </activity-alias>
         </config-file>
-        <framework src="android/build.gradle" custom="true" type="gradleReference"/>
+        <framework src="src/android/build.gradle" custom="true" type="gradleReference"/>
     </platform>
 
     <!-- iOS Platform Configuration -->

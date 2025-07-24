@@ -5,6 +5,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.StepsRecord
@@ -113,6 +114,29 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                     )
                 )
 
+            val routeData = mutableListOf<Map<String, Any>>()
+            when (val exerciseRouteResult = exerciseRecord.exerciseRouteResult) {
+                is ExerciseRouteResult.Data -> {
+                    exerciseRouteResult.exerciseRoute.route.forEach { location ->
+                        routeData.add(
+                            mapOf(
+                                "latitude" to location.latitude,
+                                "longitude" to location.longitude,
+                                "altitude" to (location.altitude?.inMeters ?: 0),
+                                "timestamp" to location.time.toEpochMilli()
+                            )
+                        )
+                    }
+                }
+                is ExerciseRouteResult.ConsentRequired -> {
+                    // If consent is required, we return an empty list for now as we don't have an interactive flow here.
+                    // The app would need to handle this by launching the consent activity.
+                }
+                is ExerciseRouteResult.NoData -> {
+                    // No exercise route to show, routeData remains empty
+                }
+            }
+
             response.add(
                 mapOf(
                     "startDate" to exerciseRecord.startTime.toString(),
@@ -121,7 +145,8 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                     "activity" to getExerciseTypeString(exerciseRecord.exerciseType),
                     "totalDistance" to distance,
                     "totalEnergyBurned" to calories,
-                    "samples" to samples
+                    "samples" to samples,
+                    "exercise_route" to routeData
                 ))
         }
        callbackContext.sendPluginResult(PluginResult(PluginResult.Status.OK, Gson().toJson(response)))
@@ -286,7 +311,8 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
                 HealthPermission.getReadPermission(ExerciseSessionRecord::class),
                 HealthPermission.getReadPermission(DistanceRecord::class),
                 HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-                HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+                HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+                HealthPermission.getReadPermission(ExerciseSessionRecord::class)
             )
             return permissions
         }
