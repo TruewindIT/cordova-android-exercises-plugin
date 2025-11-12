@@ -13,12 +13,13 @@ cordova plugin add cordova-android-exercises-plugin
 ### Features
 
 *   Requests exercise-related permissions on Android and iOS devices.
-*   Retrieves workout data with associated metrics like distance and calories.
+*   Retrieves workout data with associated metrics like distance, calories, and heart rate.
 
 ### Available Functions
 
 *   `requestPermissions(successCallback, errorCallback)`: Requests the necessary permissions for accessing exercise data.
     *   **Android Permissions:**
+        *   `android.permission.READ_HEART_RATE`
         *   `android.permission.READ_STEPS`
         *   `android.permission.READ_EXERCISE`
         *   `android.permission.READ_EXERCISEROUTE`
@@ -29,6 +30,7 @@ cordova plugin add cordova-android-exercises-plugin
         *   Workouts
         *   Active Energy Burned
         *   Basal Energy Burned
+        *   Heart Rate
         *   Distance Walking/Running
         *   Distance Cycling
         *   Distance Swimming
