@@ -209,6 +209,9 @@ class RequestExercisePermissionsPlugin : CordovaPlugin() {
             response.records.forEach { caloriesRecord ->
                 calories += caloriesRecord.energy.inKilocalories
             }
+        } catch (e: Exception) {
+            calories = 0.0
+        }
         return calories
     }
 
