@@ -29,7 +29,7 @@ cordova plugin add https://github.com/TruewindIT/cordova-android-exercises-plugi
     *   Heart Rate samples
     *   Activity-specific distance types (Running/Walking/Cycling/Swimming/Wheelchair, and iOS 18+ specific types like Rowing/Paddle/Skating/Skiing)
 *   **Robust Architecture**: 
-    *   **Android**: Built using Kotlin, Coroutines for non-blocking I/O, and official Health Connect client (`1.1.0-alpha07`).
+    *   **Android**: Built using Kotlin, Coroutines for non-blocking I/O, and official Health Connect client (`1.1.0`).
     *   **iOS**: Written in Objective-C using GCD (`dispatch_group_t` & a serial queue to ensure thread-safe collection of samples) and `__weak` references to prevent retain cycles.
 
 ---
