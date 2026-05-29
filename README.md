@@ -1,59 +1,119 @@
-# Cordova Health Exercises Plugin
+# Cordova Health Exercises Plugin (Alternative Permissions Branch)
 
-This plugin provides access to exercise-related functionalities on both Android and iOS devices.
+This branch of the Cordova Exercises Health Plugin provides a customized, unified API designed for clients who do **not** require heart rate tracking. It requests specific permissions and retrieves workout data with associated metrics like distance, step count, and calories from **Android Health Connect** and **iOS HealthKit**.
+
+---
 
 ## Installation
 
+You can install the plugin via Cordova CLI:
+
 ```bash
-cordova plugin add cordova-android-exercises-plugin
+cordova plugin add com.axians.requestexercisepermissionsplugin
 ```
 
-## Usage
+Or reference it directly via a Git URL or local folder:
 
-### Features
+```bash
+cordova plugin add https://github.com/TruewindIT/cordova-android-exercises-plugin.git#alt-permissions
+```
 
-*   Requests exercise-related permissions on Android and iOS devices.
-*   Retrieves workout data with associated metrics like distance and calories.
+---
 
-### Available Functions
+## Technical Features
 
-*   `requestPermissions(successCallback, errorCallback)`: Requests the necessary permissions for accessing exercise data.
-    *   **Android Permissions:**
-        *   `android.permission.READ_STEPS`
-        *   `android.permission.READ_EXERCISE`
-        *   `android.permission.READ_EXERCISEROUTE`
-        *   `android.permission.READ_DISTANCE`
-        *   `android.permission.READ_ACTIVE_CALORIES_BURNED`
-        *   `android.permission.READ_TOTAL_CALORIES_BURNED`
-    *   **iOS Permissions:** The plugin requests access to various HealthKit data types, including:
-        *   Workouts
-        *   Active Energy Burned
-        *   Basal Energy Burned
-        *   Distance Walking/Running
-        *   Distance Cycling
-        *   Distance Swimming
-        *   Distance Wheelchair
-        *   Step Count
+*   **Customized Permission Set**: Omit sensitive metrics (like Heart Rate) to satisfy strict enterprise privacy guidelines.
+*   **Unified API**: Standardized access to Health Connect (Android) and HealthKit (iOS).
+*   **Permissions Management**: Fully supports modern OS permissions, including Android 14+ Health Connect permissions rationale and iOS HealthKit authorization.
+*   **Granular Metrics**: Fetches workouts and matches them with precise metrics, including:
+    *   Active & Basal Energy Burned (Calories)
+    *   Step Count
+    *   Activity-specific distance types (Running/Walking/Cycling/Swimming/Wheelchair, and iOS 18+ specific types like Rowing/Paddle/Skating/Skiing)
+*   **Robust Architecture**: 
+    *   **Android**: Built using Kotlin, Coroutines for non-blocking I/O, and official Health Connect client (`1.1.0`).
+    *   **iOS**: Written in Objective-C using GCD (`dispatch_group_t` & a serial queue to ensure thread-safe collection of samples) and `__weak` references to prevent retain cycles.
 
-*   `getExerciseData(startTime, endTime, successCallback, errorCallback)`: Retrieves exercise data between the specified start and end times.
+---
 
-### Dependencies
+## API Reference
 
-#### Android
+The plugin is exposed via `cordova.plugins.RequestExercisePermissionsPlugin`.
 
-The following dependencies are used in the `android/build.gradle` file:
+### `requestPermissions(successCallback, errorCallback)`
 
-*   `androidx.health.connect:connect-client:1.1.0-alpha07`: Provides the Health Connect API client for accessing health data.
-*   `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1`: Provides coroutines support for asynchronous programming in Kotlin.
-*   `com.google.code.gson:gson:2.8.9`: A Java serialization/deserialization library to convert Java Objects into their JSON representation and vice versa.
+Requests the necessary permissions to access health and workout data.
 
-#### iOS
+#### Requested Permissions (No Heart Rate)
 
-The plugin relies on the following iOS frameworks and dependencies:
+| Platform | Permission / Identifier | Description |
+| :--- | :--- | :--- |
+| **Android** | `READ_STEPS` | Read step counts |
+| | `READ_EXERCISE` | Read exercise sessions |
+| | `READ_EXERCISEROUTE` | Read workout routes |
+| | `READ_DISTANCE` | Read distance records |
+| | `READ_ACTIVE_CALORIES_BURNED` | Read active energy |
+| | `READ_TOTAL_CALORIES_BURNED` | Read total energy |
+| **iOS** | `HKWorkoutType` | Read workout history |
+| | `HKQuantityTypeIdentifierActiveEnergyBurned` | Read active energy burned |
+| | `HKQuantityTypeIdentifierBasalEnergyBurned` | Read basal energy burned |
+| | `HKQuantityTypeIdentifierDistance*` | Read distance (Walking/Running, Cycling, Swimming, etc.) |
+| | `HKQuantityTypeIdentifierStepCount` | Read step count |
 
-*   `HealthKit.framework`: Provides access to the HealthKit framework for accessing health data.
+---
 
-### Example
+### `getExerciseData(startTime, endTime, successCallback, errorCallback)`
+
+Retrieves exercise data between the specified start and end times. Both times should be provided as ISO 8601 formatted strings (e.g., `YYYY-MM-DDTHH:mm:ss.sssZ`).
+
+#### JSON Output Format
+
+The `successCallback` receives a serialized JSON string representing an array of exercise objects. 
+
+```json
+[
+  {
+    "startDate": "2026-05-20T08:00:00.000Z",
+    "endDate": "2026-05-20T09:00:00.000Z",
+    "duration": 3600,
+    "activity": "running",
+    "totalDistance": 10450.2,
+    "totalEnergyBurned": 680.5,
+    "samples": [
+      {
+        "startDate": "2026-05-20T08:00:00.000Z",
+        "endDate": "2026-05-20T09:00:00.000Z",
+        "block": 1,
+        "values": [620.0],
+        "additionalData": "ACTIVE_CALORIES_BURNED"
+      }
+    ]
+  }
+]
+```
+
+---
+
+## Configuration & Platform Specifics
+
+### Android (Health Connect)
+
+1. **Android 14+ Rationale**:
+   Beginning in Android 14, apps must declare an Activity to explain Health Connect data usage (Privacy Policy link / permissions rationale). The plugin automatically declares `HealthActivityPermissions` with an intent filter to handle the `ACTION_SHOW_PERMISSIONS_RATIONALE` and `VIEW_PERMISSION_USAGE` actions.
+2. **Permissions declaration**:
+   The required `<uses-permission>` tags are automatically injected into your `AndroidManifest.xml` via the plugin configuration.
+
+### iOS (HealthKit)
+
+1. **Info.plist Keys**:
+   The plugin automatically appends the required privacy declarations to your project's `*-Info.plist`:
+   *   `NSHealthShareUsageDescription`: Explains why the app reads health data.
+   *   `NSHealthUpdateUsageDescription`: Explains why the app updates health data.
+2. **Entitlements**:
+   The HealthKit entitlement is automatically added to both `Entitlements-Debug.plist` and `Entitlements-Release.plist` during build time.
+
+---
+
+## Code Example
 
 ```javascript
 const healthPlugin = cordova.plugins.RequestExercisePermissionsPlugin;
@@ -66,38 +126,36 @@ if (!healthPlugin) {
 // 1. Request Permissions
 healthPlugin.requestPermissions(
     function(successMsg) {
-        console.log('Permission request success:', successMsg);
+        console.log('Permission request process completed:', successMsg);
 
-        // 2. Get Exercise Data for January of the current year
+        // 2. Query data for the month of January of the current year
         const currentYear = new Date().getFullYear();
-        // Note: JavaScript months are 0-indexed (0 = January)
-        const startDate = new Date(currentYear, 3, 1, 0, 0, 0, 0); // Jan 1st, 00:00:00
-        const endDate = new Date(currentYear, 4, 1, 0, 0, 0, 0);   // Feb 1st, 00:00:00 (Query is exclusive of end date)
+        
+        // JavaScript months are 0-indexed (0 = January)
+        const startDate = new Date(currentYear, 0, 1, 0, 0, 0, 0); // Jan 1st, 00:00:00
+        const endDate = new Date(currentYear, 1, 1, 0, 0, 0, 0);   // Feb 1st, 00:00:00 (Exclusive)
 
-        // Format dates as ISO 8601 strings
+        // Convert to ISO 8601 strings
         const startDateISO = startDate.toISOString();
         const endDateISO = endDate.toISOString();
 
-        console.log(`Fetching data from ${startDateISO} to ${endDateISO} (Month of January ${currentYear})`);
+        console.log(`Fetching data from ${startDateISO} to ${endDateISO} (January ${currentYear})`);
 
         healthPlugin.getExerciseData(
             startDateISO,
             endDateISO,
             function(jsonData) {
-                console.log('Exercise data received (JSON string):', jsonData);
                 try {
-                    const data = JSON.parse(jsonData);
-                    console.log('Parsed exercise data:', data);
-                    // Display data in the app's UI if desired
+                    const exercises = JSON.parse(jsonData);
+                    console.log(`Successfully fetched ${exercises.length} exercise records:`, exercises);
                 } catch (e) {
-                    console.error('Error parsing JSON data:', e);
+                    console.error('Error parsing exercise JSON:', e);
                 }
             },
             function(errorMsg) {
                 console.error('Error getting exercise data:', errorMsg);
             }
         );
-
     },
     function(errorMsg) {
         console.error('Permission request error:', errorMsg);
@@ -105,10 +163,16 @@ healthPlugin.requestPermissions(
 );
 ```
 
-### Known Issues
+---
 
-*   **iOS Authorization Status:** In some cases, the `authorizationStatus(for:)` method may return `.sharingDenied` even after the user has granted permissions in the Settings app. This issue may be related to the provisioning profile or HealthKit entitlements.
+## Known Behaviors & Troubleshooting
 
-# Author
-Developed by Henrique Silva at Axians DC Low-Code
-henrique.silva@axians.com
+*   **iOS Privacy Constraints**:
+    If a user denies permission to read specific types (e.g. Distance) in the iOS Health Settings, iOS will return an empty list of samples instead of throwing an error. This is a deliberate privacy feature of Apple's HealthKit to prevent fingerprinting.
+*   **Android Health Connect App**:
+    On Android devices running Android 13 or lower, the user must have the **Health Connect** application installed from the Google Play Store for the API to function. On Android 14+, Health Connect is integrated directly into the OS Settings.
+
+---
+
+## Author
+Developed by **Henrique Silva** at Axians DC Low-Code (henrique.silva@axians.com).
