@@ -534,6 +534,14 @@
         case HKWorkoutActivityTypeTaiChi: return @"Tai Chi";
         case HKWorkoutActivityTypeMixedCardio: return @"Mixed Cardio";
         case HKWorkoutActivityTypeHandCycling: return @"Hand Cycling";
+        case HKWorkoutActivityTypePickleball: return @"Pickleball";
+        case HKWorkoutActivityTypeSocialDance: return @"Social Dance";
+        case HKWorkoutActivityTypeCooldown: return @"Cooldown";
+        case HKWorkoutActivityTypeSwimBikeRun: return @"Swim Bike Run";
+        case HKWorkoutActivityTypeUnderwaterDiving: return @"Underwater Diving";
+        case HKWorkoutActivityTypeDiscSports: return @"Disc Sports";
+        case HKWorkoutActivityTypeFitnessGaming: return @"Fitness Gaming";
+        case HKWorkoutActivityTypeCardioDance: return @"Cardio Dance";
         case HKWorkoutActivityTypeOther: return @"Other";
         default: return @"Other";
     }
