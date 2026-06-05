@@ -542,6 +542,7 @@
         case HKWorkoutActivityTypeDiscSports: return @"Disc Sports";
         case HKWorkoutActivityTypeFitnessGaming: return @"Fitness Gaming";
         case HKWorkoutActivityTypeCardioDance: return @"Cardio Dance";
+        case HKWorkoutActivityTypeTransition: return @"Transition";
         case HKWorkoutActivityTypeOther: return @"Other";
         default: return @"Other";
     }

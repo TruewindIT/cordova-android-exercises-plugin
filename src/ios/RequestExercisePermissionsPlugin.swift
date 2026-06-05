@@ -413,6 +413,15 @@ extension HKWorkoutActivityType {
             .stairs: "Stairs", .stepTraining: "Step Training", .wheelchairWalkPace: "Wheelchair Walk Pace",
             .wheelchairRunPace: "Wheelchair Run Pace", .taiChi: "Tai Chi", .mixedCardio: "Mixed Cardio",
             .handCycling: "Hand Cycling",
+            .pickleball: "Pickleball",
+            .socialDance: "Social Dance",
+            .cooldown: "Cooldown",
+            .swimBikeRun: "Swim Bike Run",
+            .underwaterDiving: "Underwater Diving",
+            .discSports: "Disc Sports",
+            .fitnessGaming: "Fitness Gaming",
+            .cardioDance: "Cardio Dance",
+            .transition: "Transition",
             .other: "Other"
         ]
         return mapping[self] ?? "Other"
