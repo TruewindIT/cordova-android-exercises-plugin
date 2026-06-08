@@ -1,6 +1,6 @@
 # Cordova Health Exercises Plugin (Alternative Permissions Branch)
 
-This branch of the Cordova Exercises Health Plugin provides a customized, unified API designed for clients who do **not** require heart rate tracking. It requests specific permissions and retrieves workout data with associated metrics like distance, step count, and calories from **Android Health Connect** and **iOS HealthKit**.
+This branch of the Cordova Exercises Health Plugin provides a customized, unified API designed for clients who do **not** require write permissions or route/GPS tracking. It requests specific read permissions and retrieves workout data with associated metrics like distance, step count, heart rate, and calories from **Android Health Connect** and **iOS HealthKit**.
 
 ---
 
@@ -22,12 +22,13 @@ cordova plugin add https://github.com/TruewindIT/cordova-android-exercises-plugi
 
 ## Technical Features
 
-*   **Customized Permission Set**: Omit sensitive metrics (like Heart Rate) to satisfy strict enterprise privacy guidelines.
+*   **Customized Permission Set**: Omit write access and route/GPS tracking to satisfy strict enterprise privacy and compliance guidelines.
 *   **Unified API**: Standardized access to Health Connect (Android) and HealthKit (iOS).
 *   **Permissions Management**: Fully supports modern OS permissions, including Android 14+ Health Connect permissions rationale and iOS HealthKit authorization.
 *   **Granular Metrics**: Fetches workouts and matches them with precise metrics, including:
     *   Active & Basal Energy Burned (Calories)
     *   Step Count
+    *   Heart Rate (BPM)
     *   Activity-specific distance types (Running/Walking/Cycling/Swimming/Wheelchair, and iOS 18+ specific types like Rowing/Paddle/Skating/Skiing)
 *   **Robust Architecture**: 
     *   **Android**: Built using Kotlin, Coroutines for non-blocking I/O, and official Health Connect client (`1.1.0`).
@@ -43,19 +44,20 @@ The plugin is exposed via `cordova.plugins.RequestExercisePermissionsPlugin`.
 
 Requests the necessary permissions to access health and workout data.
 
-#### Requested Permissions (No Heart Rate)
+#### Requested Permissions (No Write / No Route)
 
 | Platform | Permission / Identifier | Description |
 | :--- | :--- | :--- |
 | **Android** | `READ_STEPS` | Read step counts |
 | | `READ_EXERCISE` | Read exercise sessions |
-| | `READ_EXERCISEROUTE` | Read workout routes |
+| | `READ_HEART_RATE` | Read heart rate records |
 | | `READ_DISTANCE` | Read distance records |
 | | `READ_ACTIVE_CALORIES_BURNED` | Read active energy |
 | | `READ_TOTAL_CALORIES_BURNED` | Read total energy |
 | **iOS** | `HKWorkoutType` | Read workout history |
 | | `HKQuantityTypeIdentifierActiveEnergyBurned` | Read active energy burned |
 | | `HKQuantityTypeIdentifierBasalEnergyBurned` | Read basal energy burned |
+| | `HKQuantityTypeIdentifierHeartRate` | Read heart rate metrics |
 | | `HKQuantityTypeIdentifierDistance*` | Read distance (Walking/Running, Cycling, Swimming, etc.) |
 | | `HKQuantityTypeIdentifierStepCount` | Read step count |
 
