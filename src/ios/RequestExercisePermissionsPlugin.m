@@ -29,6 +29,7 @@
                                [HKObjectType workoutType],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierActiveEnergyBurned],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierBasalEnergyBurned],
+                               [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierHeartRate],
                                // Add all relevant distance types we might query later
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWalkingRunning],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceCycling],
@@ -100,21 +101,25 @@
     HKObjectType *workoutType = [HKObjectType workoutType];
     HKQuantityType *activeEnergyType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierActiveEnergyBurned];
     HKQuantityType *basalEnergyType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierBasalEnergyBurned];
+    HKQuantityType *heartRateType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierHeartRate];
     // Distance status checked dynamically in fetchSamples
 
     HKAuthorizationStatus workoutStatus = [self.healthStore authorizationStatusForType:workoutType];
-    HKAuthorizationStatus activeEnergyStatus = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierActiveEnergyBurned];
-    HKAuthorizationStatus basalEnergyStatus = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierBasalEnergyBurned];
+    HKAuthorizationStatus activeEnergyStatus = [self.healthStore authorizationStatusForType:activeEnergyType];
+    HKAuthorizationStatus basalEnergyStatus = [self.healthStore authorizationStatusForType:basalEnergyType];
+    HKAuthorizationStatus heartRateStatus = [self.healthStore authorizationStatusForType:heartRateType];
 
-    NSLog(@"Debug: Auth Status Check (Core):\nWorkout: %ld, ActiveEnergy: %ld, BasalEnergy: %ld",
-          (long)workoutStatus, (long)activeEnergyStatus, (long)basalEnergyStatus);
+    NSLog(@"Debug: Auth Status Check (Core):\nWorkout: %ld, ActiveEnergy: %ld, BasalEnergy: %ld, HR: %ld",
+          (long)workoutStatus, (long)activeEnergyStatus, (long)basalEnergyStatus, (long)heartRateStatus);
 
     if (workoutStatus == HKAuthorizationStatusNotDetermined ||
-        activeEnergyStatus == HKAuthorizationStatusNotDetermined) {
+        activeEnergyStatus == HKAuthorizationStatusNotDetermined ||
+        heartRateStatus == HKAuthorizationStatusNotDetermined) {
 
         NSMutableArray *notDeterminedTypes = [NSMutableArray array];
         if (workoutStatus == HKAuthorizationStatusNotDetermined) { [notDeterminedTypes addObject:@"Workouts"]; }
         if (activeEnergyStatus == HKAuthorizationStatusNotDetermined) { [notDeterminedTypes addObject:@"Active Energy"]; }
+        if (heartRateStatus == HKAuthorizationStatusNotDetermined) { [notDeterminedTypes addObject:@"Heart Rate"]; }
 
         NSString *errorMessage = [NSString stringWithFormat:@"HealthKit authorization status not determined for essential types: %@. Please request permissions first.", [notDeterminedTypes componentsJoinedByString:@", "]];
         [self sendErrorMessage:errorMessage command:command];
@@ -293,14 +298,17 @@
     __block NSNumber *activeCaloriesSum = nil;
     __block NSNumber *basalCaloriesSum = nil;
     __block NSNumber *distanceSum = nil;
+    __block NSMutableArray *heartRateValues = nil;
 
     NSPredicate *workoutPredicate = [HKQuery predicateForSamplesWithStartDate:workout.startDate endDate:workout.endDate options:HKQueryOptionStrictStartDate];
 
     // Define Types and Units
     HKQuantityType *activeEnergyType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierActiveEnergyBurned];
     HKQuantityType *basalEnergyType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierBasalEnergyBurned];
+    HKQuantityType *heartRateType = [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierHeartRate];
     HKUnit *energyUnit = [HKUnit kilocalorieUnit];
     HKUnit *distanceUnit = [HKUnit meterUnit];
+    HKUnit *hrUnit = [[HKUnit countUnit] unitDividedByUnit:[HKUnit minuteUnit]];
 
     // --- Query Active Calories Sum ---
     dispatch_group_enter(sampleGroup);
@@ -390,6 +398,27 @@
     }
     // No dispatch_group_enter/leave needed for this synchronous access
 
+    // --- Query Heart Rate Samples ---
+    dispatch_group_enter(sampleGroup);
+    NSSortDescriptor *hrSortDescriptor = [NSSortDescriptor sortDescriptorWithKey:HKSampleSortIdentifierStartDate ascending:YES];
+    HKSampleQuery *hrQuery = [[HKSampleQuery alloc] initWithSampleType:heartRateType
+                                                              predicate:workoutPredicate
+                                                                  limit:HKObjectQueryNoLimit
+                                                        sortDescriptors:@[hrSortDescriptor]
+                                                          resultsHandler:^(HKSampleQuery * _Nonnull query, NSArray<__kindof HKSample *> * _Nullable samples, NSError * _Nullable error) {
+        if (error) {
+            NSLog(@"Error querying heart rates: %@", error.localizedDescription);
+        } else {
+            heartRateValues = [NSMutableArray array];
+            for (HKQuantitySample *sample in samples) {
+                [heartRateValues addObject:@([sample.quantity doubleValueForUnit:hrUnit])];
+            }
+            NSLog(@"Debug: Found %lu heart rate samples for workout %@", (unsigned long)heartRateValues.count, workout.UUID.UUIDString);
+        }
+        dispatch_group_leave(sampleGroup);
+    }];
+    [self.healthStore executeQuery:hrQuery];
+
     // --- Notify when all sample queries are done ---
     dispatch_group_notify(sampleGroup, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSLog(@"Debug: Sample queries finished for workout %@. Formatting output.", workout.UUID.UUIDString);
@@ -405,6 +434,12 @@
             @"values": @[activeCaloriesSum ?: @(0.0)], @"additionalData": @"ACTIVE_CALORIES_BURNED"
         };
         [samplesArray addObject:activeCaloriesSample];
+
+        NSDictionary *heartRateSample = @{
+            @"startDate": workoutStartDateStr, @"endDate": workoutEndDateStr, @"block": @1,
+            @"values": heartRateValues ?: @[], @"additionalData": @"HEART_RATE"
+        };
+        [samplesArray addObject:heartRateSample];
 
         // Fetch route data asynchronously
         dispatch_group_enter(sampleGroup);
