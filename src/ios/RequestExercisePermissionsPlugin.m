@@ -36,7 +36,6 @@
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceSwimming],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierDistanceWheelchair],
                                [HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount],
-                               [HKSeriesType workoutRouteType],
                                nil];
 
     // Add distance types available in newer OS versions conditionally
@@ -441,80 +440,23 @@
         };
         [samplesArray addObject:heartRateSample];
 
-        // Fetch route data asynchronously
-        dispatch_group_enter(sampleGroup);
-        [self fetchRouteDataForWorkout:workout completion:^(NSArray *routeData) {
-            // --- Construct Main Workout Dictionary ---
-            double totalCalculatedEnergy = (activeCaloriesSum.doubleValue ?: 0.0) + (basalCaloriesSum.doubleValue ?: 0.0);
-            double totalCalculatedDistance = distanceSum.doubleValue ?: 0.0;
+        // --- Construct Main Workout Dictionary ---
+        double totalCalculatedEnergy = (activeCaloriesSum.doubleValue ?: 0.0) + (basalCaloriesSum.doubleValue ?: 0.0);
+        double totalCalculatedDistance = distanceSum.doubleValue ?: 0.0;
 
-            NSMutableDictionary *workoutDict = [NSMutableDictionary dictionaryWithDictionary:@{
-                @"startDate": workoutStartDateStr,
-                @"endDate": workoutEndDateStr,
-                @"duration": @(workout.duration),
-                @"activity": [self nameForWorkoutActivityType:workout.workoutActivityType], // Use helper for activity name
-                @"totalDistance": @(totalCalculatedDistance),
-                @"totalEnergyBurned": @(totalCalculatedEnergy),
-                @"samples": samplesArray
-            }];
+        NSDictionary *workoutDict = @{
+            @"startDate": workoutStartDateStr,
+            @"endDate": workoutEndDateStr,
+            @"duration": @(workout.duration),
+            @"activity": [self nameForWorkoutActivityType:workout.workoutActivityType], // Use helper for activity name
+            @"totalDistance": @(totalCalculatedDistance),
+            @"totalEnergyBurned": @(totalCalculatedEnergy),
+            @"samples": samplesArray,
+            @"exercise_route": @[]
+        };
 
-            if (routeData && routeData.count > 0) {
-                [workoutDict setObject:routeData forKey:@"exercise_route"];
-            } else {
-                [workoutDict setObject:@[] forKey:@"exercise_route"]; // Ensure it's an empty array if no data
-            }
-
-            completion(workoutDict);
-            dispatch_group_leave(sampleGroup);
-        }];
+        completion(workoutDict);
     });
-}
-
-- (void)fetchRouteDataForWorkout:(HKWorkout *)workout completion:(void (^)(NSArray *))completion {
-    NSPredicate *predicate = [HKQuery predicateForObjectsFromWorkout:workout];
-    HKSeriesType *routeType = [HKSeriesType workoutRouteType];
-
-    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType:routeType
-                                                            predicate:predicate
-                                                                limit:HKObjectQueryNoLimit
-                                                      sortDescriptors:nil
-                                                       resultsHandler:^(HKSampleQuery * _Nonnull query, NSArray<__kindof HKSample *> * _Nullable samples, NSError * _Nullable error) {
-        if (error || !samples.firstObject) {
-            completion(@[]); // No route found or error, return empty array
-            return;
-        }
-
-        HKWorkoutRoute *route = (HKWorkoutRoute *)samples.firstObject;
-        NSMutableArray *locations = [NSMutableArray array];
-        NSISO8601DateFormatter *dateFormatter = [[NSISO8601DateFormatter alloc] init];
-        dateFormatter.formatOptions = NSISO8601DateFormatWithInternetDateTime | NSISO8601DateFormatWithFractionalSeconds;
-
-        HKWorkoutRouteQuery *routeQuery = [[HKWorkoutRouteQuery alloc] initWithRoute:route dataHandler:^(HKWorkoutRouteQuery * _Nonnull query, NSArray<CLLocation *> * _Nullable routeLocations, BOOL done, NSError * _Nullable error) {
-            if (error) {
-                NSLog(@"Error querying route locations: %@", error.localizedDescription);
-                completion(@[]); // Error, return empty array
-                return;
-            }
-
-            for (CLLocation *location in routeLocations) {
-                [locations addObject:@{
-                    @"latitude": @(location.coordinate.latitude),
-                    @"longitude": @(location.coordinate.longitude),
-                    @"altitude": @(location.altitude),
-                    @"timestamp": @([location.timestamp timeIntervalSince1970] * 1000) // Milliseconds since epoch
-                }];
-            }
-
-            if (done) {
-                // Sort locations by timestamp ascending
-                NSSortDescriptor *sortDescriptor = [NSSortDescriptor sortDescriptorWithKey:@"timestamp" ascending:YES];
-                NSArray *sortedLocations = [locations sortedArrayUsingDescriptors:@[sortDescriptor]];
-                completion(sortedLocations);
-            }
-        }];
-        [self.healthStore executeQuery:routeQuery];
-    }];
-    [self.healthStore executeQuery:query];
 }
 
 // Helper function to get human-readable name for workout activity type
